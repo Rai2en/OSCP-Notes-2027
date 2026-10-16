@@ -36,6 +36,12 @@ The table is a repository assessment, not a claim that all techniques are valida
 
 ## Validation levels
 
+### Field manual revision — 2026-10-17
+
+The complete README at `d3496cf` was reviewed for this follow-up. It now serves as the **OSCP Ultimate Field Manual**, with stage-based navigation, consistent heading levels, ten service-specific checklists, Linux/Windows/AD checklists, concise Exam Tips and an Exam Mindset & Time Management section. Existing technical subjects and attribution remain; identified command changes are itemized in the [follow-up audit](command-audit.md#field-manual-follow-up-review). The exam snapshot was rechecked against the official guide and FAQ. These changes are source-reviewed and locally checked, not target-lab-tested.
+
+### What each level means
+
 **Source-reviewed** means documentation was compared with primary references. **Locally checked** applies to repository scripts and navigation. **Lab-tested** requires a dated, reproducible lab run with tool and target versions. The new attack workflows are source-reviewed, not lab-tested in this revision. The original README retains historical examples; this is not a line-by-line certification of every command.
 
 ## Maintenance priorities

