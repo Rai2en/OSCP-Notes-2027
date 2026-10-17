@@ -42,3 +42,7 @@ For each additional tool, record the binary path, release/commit, architecture, 
 - Export a sample report and check its screenshots offline.
 
 Prefer a few tools you can diagnose over a folder of untested binaries. SQLMap and mass vulnerability scanners belong to permitted training contexts, not the exam workflow. Metasploit/Meterpreter usage must follow [the specific restrictions](exam.md).
+
+## An actual record versus an empty inventory
+
+The [local HTTP/SQLite record](lab-validation.md#executed-record-http-truefalse-controls) records Python 3.12.14, SQLite 3.53.1 and the exact observed controls on 2026-10-17. That validates the bounded teaching fixture only. The [target-lab matrix](lab-validation.md#target-lab-repetitions-still-required) leaves network/privilege procedures pending until they have equivalent tool/target evidence. Fill the tool inventory from those runs, rather than assuming a downloaded binary works.

@@ -1,10 +1,16 @@
-# Penetration Test Report
+# OSCP practice / exam report
+
+Use this skeleton for private practice and adapt it to the current [official exam guide](https://help.offsec.com/hc/en-us/articles/360040165632-OSCP-Exam-Guide) and exam-panel instructions. It is not an official OffSec template. For a client engagement, use [the client report](https://github.com/Rai2en/OSCP-Notes-2027/blob/main/templates/client-report.md).
 
 Candidate / author: REPLACE
 
 Assessment / authorized scope: REPLACE
 
 Date: REPLACE
+
+Exam OSID / required filename: REPLACE FROM CURRENT INSTRUCTIONS
+
+Private evidence directory: REPLACE
 
 ## Executive summary
 
@@ -16,9 +22,11 @@ Describe targets, network paths, testing constraints and relevant tool versions.
 
 ## Results
 
-| Target | Initial access | Privileged access | Evidence reference |
-|---|---|---|---|
-| | | | |
+| Target / objective | Initial access | Required privilege / identity | Proof screenshot | Panel submitted |
+|---|---|---|---|---|
+| | | | | |
+
+Record only verified objectives. Do not infer earned points from this table.
 
 ## Target: REPLACE
 
@@ -36,7 +44,11 @@ Explain permissions, vulnerable behavior, trigger and proof of the final identit
 
 ### Evidence
 
-Insert legible screenshots and captions. Verify any exam-specific proof requirements against the current official guide before submission.
+| Objective | Original proof path | Screenshot showing proof + target IP | Resulting identity | Panel submission recorded |
+|---|---|---|---|---|
+| | | | | |
+
+Insert legible screenshots and captions. Follow [the evidence checklist](https://github.com/Rai2en/OSCP-Notes-2027/blob/main/docs/exam.md#evidence-at-each-milestone) and the current official instructions. A saved flag value alone does not replace the required capture.
 
 ### Impact and remediation
 
@@ -49,3 +61,11 @@ Document network forwards, dependencies, modified exploits, original URLs and ra
 ## Appendix
 
 Include required modified source as text, relevant version information and supporting references. Remove empty template sections before export. Visually inspect the final PDF and rehearse packaging separately.
+
+## Submission rehearsal / final check
+
+- [ ] Each objective has the required proof, target IP and reproducible access path.
+- [ ] Commands identify their execution host, shell, credential context and result.
+- [ ] Modified exploit sources and explanations are included as required.
+- [ ] PDF images and code remain legible after export; no placeholders remain.
+- [ ] File naming, archive format, upload and checksum verification follow the current instructions.

@@ -7,12 +7,12 @@
 On Kali, inside a private session directory:
 
 ```bash
-export TARGET=192.0.2.10
+export IP=192.0.2.10
 mkdir -p scans
-nmap -sT -Pn -n -p- --reason -oA scans/tcp-all "$TARGET"
+nmap -sT -Pn -n -p- --reason -oA scans/tcp-all "$IP"
 # Replace this example list with the ports actually found.
-nmap -sT -Pn -n -sV -sC -p 22,80,445 --reason -oA scans/services "$TARGET"
-sudo nmap -sU --top-ports 20 -Pn -n --reason -oA scans/udp-top "$TARGET"
+nmap -sT -Pn -n -sV -sC -p 22,80,445 --reason -oA scans/services "$IP"
+sudo nmap -sU --top-ports 20 -Pn -n --reason -oA scans/udp-top "$IP"
 ```
 
 `-Pn` skips discovery, not connectivity requirements. A timeout is not proof that a port is closed. UDP `open|filtered` is inconclusive. Investigate promising UDP services with protocol-specific requests. Review scripts before running them; broad NSE categories include different behaviors. [Nmap scan semantics](https://nmap.org/book/man-port-scanning-techniques.html).
@@ -29,11 +29,21 @@ sudo nmap -sU --top-ports 20 -Pn -n --reason -oA scans/udp-top "$TARGET"
 | SSH/RDP/WinRM | Is the credential valid AND authorized for this service? | Authentication result and resulting identity |
 | Unfamiliar service | What does the banner/protocol reveal? | Product, build, port and upstream advisory |
 
-Use the existing [enumeration reference](../README.md#recon-and-enumeration) for protocol commands. Revisit the inventory whenever a new hostname, credential or route is discovered.
+Use [service triage](services.md), the [SMB procedure](smb.md) or the [web procedure](web.md) to interpret a first result. Consult [historical protocol variants](reference/commands.md#recon-and-enumeration) only after choosing the question. Revisit the inventory whenever a new hostname, credential or route is discovered.
 
 ## 3. Rank hypotheses
 
 Write `observation → hypothesis → smallest test → expected result → next action` before a long attempt. Prefer a specific exposed credential or verified permission over a version-only exploit guess. Record why a failed hypothesis was rejected. After a timebox with no new evidence, change the hypothesis or service rather than repeating the same scan.
+
+Illustrative decision record, not a target transcript:
+
+| Observation/test | Result | Decision |
+|---|---|---|
+| HTTP redirects to `portal.lab.example` | Hostname found on a known IP | Resolve that host to the lab IP and preserve the intended Host header |
+| Two nonexistent paths return the same login page as `/admin` | HTTP 200 is a generic response, not evidence that every guessed path exists | Calibrate discovery using a stable marker; do not report each 200 as a finding |
+| A customer session already verified on its own page receives `403` on an admin route | The known session is denied at this route; `403` alone would not prove authentication | Compare only with an authorized second test role; don't jump to an OS exploit |
+
+The [web procedure](web.md) gives the concrete requests. The note records which interpretation was rejected, rather than only the last command tried.
 
 ## 4. Validate an exploit before adapting it
 
