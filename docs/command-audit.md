@@ -62,3 +62,13 @@ Reviewed **2026-10-17** against default-branch baseline `d3496cf`. The complete 
 | Exam | Refresh the rule-check date, clarify partial AD scoring and accepted proof capture. Timeboxes are study advice, not policy. | [Official guide](https://help.offsec.com/hc/en-us/articles/360040165632-OSCP-Exam-Guide), [official FAQ](https://help.offsec.com/hc/en-us/articles/4412170923924-OSCP-Exam-FAQ) |
 
 Validation is limited to source review, local Markdown navigation/structure checks, the existing helper tests and whitespace checks. No scan, password test, exploitation, payload execution or target-lab validation was performed. Mixed historic transcripts are labeled as text where a single shell language would be misleading. Remaining compatibility work, including old payloads, PowerView function generations and third-party binaries, still requires version-pinned lab evidence.
+
+## Operational workflow revision — 2026-10-17
+
+Baseline `09c2c27`. The preceding entries describe their historical revisions; current execution/validation status is maintained in [the validation record](lab-validation.md).
+
+- Replaced the long README with a situation index and preserved older bookmarks through chapter links. Moved technical variants, the old path wordlist and defective original snippets into separate reference appendices with attribution.
+- Corrected the curl query/path explanation and SMB console context; qualified `.git` recovery, account changes, startup/UAC, DLL loading, cron, NFS and PATH assertions. Retired the fragile PHP and `DllMain` demonstrations from the normal command path. Silver-ticket validation now distinguishes HTTP clients from other service protocols.
+- Added interpreted SMB, SQL, Windows ACL/SDDL, Linux permission and AD examples, including denied/ambiguous results and next decisions. Fixed the null-result guard before an AD ACL query and PowerShell 5.1-compatible file-extension filtering.
+- Added a bounded loopback HTTP/SQLite rehearsal and recorded its actual eight-request result. All other constructed examples remain explicitly illustrative/source-reviewed; no target-lab success is claimed.
+- Separated exam reports from client findings/engagement briefs and added a notebook mode selector. The local document checker now resolves ordinary heading and explicit-anchor fragments, including moved references; tests cover those helper behaviors, not offensive success.

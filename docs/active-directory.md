@@ -2,6 +2,8 @@
 
 [Home](../README.md) · [AD commands](../README.md#active-directory-pentesting) · [Pivoting](pivoting.md)
 
+**Validation:** source-reviewed on 2026-10-17. Outputs below are synthetic teaching examples, not captured lab results. Record your own collector/PowerView revision and observed results before treating a path as tested.
+
 ## 1. Establish identity and transport
 
 Record the domain DNS name, DC IP/FQDN, current user, local versus domain context, reachable hosts and the route used. Resolve the DC before debugging Kerberos. Verify clock alignment; an authentication error may be transport, DNS or time-related.
@@ -19,6 +21,35 @@ nxc smb "$DC_IP" -d "$DOMAIN" -u "$AD_USER" -p "$AD_PASS" --shares
 ```
 
 The variable avoids putting a literal password in the command history, but command-line arguments can still be visible to local processes. Keep secrets in your private notebook. Test the known pair on one host before expanding to a documented target list. A successful SMB login does not grant administrative or WinRM access. [NetExec authentication reference](https://www.netexec.wiki/smb-protocol/authentication/checking-credentials-domain).
+
+### Read the result before choosing a remote-access tool
+
+Synthetic excerpt from the known-pair test; formatting and success labels vary by NetExec version:
+
+```text
+SMB  192.0.2.20  445  DC01  [+] lab.example\student:<redacted>
+```
+
+This establishes that this host accepted this pair for SMB. Now test the specific resource, using the discovered NetBIOS domain `LAB` and a share name returned by enumeration. Kali Bash; `smbclient` prompts for the password:
+
+```bash
+smbclient "//$DC_IP/Finance" -U 'LAB\student' -c 'ls'
+```
+
+Synthetic negative result:
+
+```text
+tree connect failed: NT_STATUS_ACCESS_DENIED
+```
+
+**Decision:** retain the verified credential and mark Finance access denied. Do not mark it as invalid or infer local administrator rights. Inspect another documented resource or the directory permissions available to this identity.
+
+| Result | What it establishes | Next discriminating check |
+|---|---|---|
+| Connection timeout, no protocol response | Transport is unproven | Selected route, destination port and pivot; repeating the password does not test these |
+| `STATUS_LOGON_FAILURE` | This attempt failed authentication | Exact principal/domain, secret type and quoting; check account status before another attempt |
+| SMB login accepted, share denied | Authentication worked; this resource is not accessible in this context | Share name, share/file permissions and another explicitly permitted resource |
+| Share listing/read succeeds | That operation on that share is allowed | Record the file and access level; a read does not establish remote execution |
 
 ## 2. Collect and verify the graph
 
@@ -45,6 +76,46 @@ Check collection errors, domain identity and missing hosts before trusting an em
 | Delegation or certificate configuration | Exact configuration and prerequisites | Treat as a separate verified technique, not an automatic shortcut |
 
 Consult the upstream [GenericAll](https://bloodhound.specterops.io/resources/edges/generic-all) and [ForceChangePassword](https://bloodhound.specterops.io/resources/edges/force-change-password) explanations for object-specific behavior. Do not assume an edge named AllExtendedRights always means every useful operation on every object type.
+
+### Worked decision: a GenericAll edge to a group
+
+**Observation:** the graph suggests `STUDENT@LAB.EXAMPLE -> GenericAll -> APP-SUPPORT@LAB.EXAMPLE`. Before considering membership changes, establish that the source SID is yours, the target is the intended group and the live ACL supports the edge.
+
+Windows PowerShell in an existing session for the same authorized domain, with a reviewed local PowerView build already loaded. These are read-only directory queries. Confirm the named functions exist; older PowerView generations differ:
+
+```powershell
+Get-Command Get-DomainUser, Get-DomainGroup, Get-DomainObjectAcl -ErrorAction Stop
+whoami /user
+whoami /groups
+$PrincipalSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$Principal = Get-DomainUser -Identity $PrincipalSid -Properties samaccountname,objectsid,distinguishedname
+$Group = Get-DomainGroup -Identity 'App-Support' -Properties samaccountname,objectsid,distinguishedname,member,memberof
+if ($null -eq $Principal -or $null -eq $Group -or @($Principal).Count -ne 1 -or @($Group).Count -ne 1 -or -not $Principal.distinguishedname -or -not $Group.distinguishedname) {
+    throw 'Resolve the exact user and group DN before querying ACLs.'
+}
+$Principal | Format-List samaccountname,objectsid,distinguishedname
+$Group | Format-List samaccountname,objectsid,distinguishedname,member,memberof
+Get-DomainGroup -MemberIdentity $Principal.distinguishedname | Select-Object samaccountname,objectsid
+$Acl = Get-DomainObjectAcl -Identity $Group.distinguishedname -ResolveGUIDs
+$Acl | Format-List ObjectDN,SecurityIdentifier,AceQualifier,ActiveDirectoryRights,AceFlags,ObjectAceType,InheritedObjectAceType
+```
+
+Compare **all relevant entries**, not just a filtered Allow row. Synthetic excerpts for interpretation:
+
+```text
+Current user SID       : S-1-5-21-111111111-222222222-333333333-1105
+Target group DN        : CN=App-Support,OU=Groups,DC=lab,DC=example
+SecurityIdentifier     : S-1-5-21-111111111-222222222-333333333-1105
+AceQualifier           : AccessAllowed
+ActiveDirectoryRights  : GenericAll
+AceFlags               : None
+```
+
+The trustee matches the current user and this illustrative ACE applies to the group itself. Review the full ACL for applicable denies, inheritance/object restrictions and other trustee entries. An `InheritOnly` entry does not apply to the object carrying it. If the trustee is a group, establish the principal's applicable membership, including nested groups; a directory membership query and the enabled groups in an existing logon token can differ. `-MemberIdentity` helps inspect directory token-group membership; `whoami /groups` describes the present Windows session. Neither command alone computes every effective permission. See [PowerView's function definitions](https://github.com/PowerShellMafia/PowerSploit/blob/master/Recon/PowerView.ps1) and [Microsoft's access-check model](https://learn.microsoft.com/en-us/windows/win32/secauthz/how-dacls-control-access-to-an-object).
+
+**Decision:** record a supported membership-control candidate, then inspect what App-Support actually grants. Follow its `memberof` parents and verify any claimed right on the destination resource. A group name containing “Support” does not establish host administration or WinRM access. This example stops at verification; a membership change would require a permitted test, a recorded original state and a cleanup plan.
+
+**Negative control:** if the only matching GenericAll Allow ACE belongs to SID ending `-1147`, while your SID ends `-1105` and none of your applicable groups matches that trustee, this excerpt provides no right for you. Do not “try it anyway.” Recheck the graph's source identity and collection date. No returned ACL is also inconclusive: distinguish an absent entry from a failed directory query.
 
 ## 4. Track credentials and authentication types
 

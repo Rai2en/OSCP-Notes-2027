@@ -1,7 +1,7 @@
 # Technique name
 
 - Purpose:
-- Validation: draft / source-reviewed / lab-tested
+- Validation: illustrative / source-reviewed / local-fixture-tested / target-lab-tested
 - Last reviewed:
 - Tool and target versions:
 - Primary source:
@@ -24,4 +24,4 @@ Label execution host and shell. Use synthetic values.
 
 ## Reproduction record
 
-For lab-tested status, document date, authorized lab, expected and observed result. Do not include restricted machine solutions, real credentials or exam flags.
+For target-lab-tested status, document date, authorized lab, tool/target versions, exact setup, expected and observed result, negative control and cleanup. A local-fixture record applies only to that fixture. See [validation definitions and an executed example](../docs/lab-validation.md). Do not include restricted machine solutions, real credentials or exam flags.

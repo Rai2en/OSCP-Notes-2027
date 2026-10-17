@@ -19,4 +19,4 @@ python3 -m unittest discover -s tests -v
 git diff --check
 ```
 
-The documentation checker verifies local inline Markdown file paths. It does not certify external links, heading anchors, tool correctness or exam permission.
+The documentation checker verifies local inline Markdown file paths and ordinary heading/explicit-anchor fragments. It does not certify external links, arbitrary Markdown dialects, tool correctness or exam permission. When moving a section, preserve its old README bookmark or update links and add a compatibility entry. Mark constructed output as illustrative; reserve target-lab-tested status for a dated record in [validation](docs/lab-validation.md).

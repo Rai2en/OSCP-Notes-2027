@@ -1,55 +1,36 @@
-# Coverage, audit and remaining work
+# Coverage and remaining validation
 
-[Home](../README.md) · [Start here](start-here.md)
+[Home](../README.md) · [Validation records](lab-validation.md) · [Correction history](command-audit.md)
 
-Baseline reviewed: commit `24b4c1b`, 2026-09-10. The repository was a single README of about 2,300 lines. It already covered many enumeration, transfer, credential, privilege and AD commands. The main gaps were navigation, decision criteria, troubleshooting, reporting and explicit separation of training-only tools.
+Updated 2026-10-17 from baseline `09c2c27`. The former 2,529-line README is now a situation index. Its technical topics and attribution remain in [the command archive](reference/commands.md), the [historical path list](reference/file-locations.md) and explicitly [retired snippets](reference/retired-snippets.md). Old README bookmarks have chapter links.
 
-The table is a repository assessment, not a claim that all techniques are validated. The [official body of knowledge](https://help.offsec.com/hc/en-us/articles/38543335188756-OSCP-Body-of-knowledge) defines a broader curriculum than a command list. Course coverage and exam permission are different questions.
+## Current procedures
 
-| Area | Current resource | Status / next improvement |
+| Area | Current path | Evidence supplied / remaining work |
 |---|---|---|
-| Reporting and evidence | [Exam](exam.md), [report template](../templates/report.md) | Added; rehearse a full PDF export locally |
-| Information gathering | [Methodology](methodology.md), README protocol sections | Broad command coverage; add annotated lab outputs |
-| Web assessment | [Web](web.md) | Added manual workflow; expand API and XSS lab examples |
-| SQL | README manual SQL and web workflow | Existing commands; training-only SQLMap explicitly labeled |
-| Client-side topics | README contains limited material | Gap: structured authorized-lab exercises and prerequisites |
-| Public exploit selection/adaptation | Methodology and troubleshooting | Added checklist; worked synthetic examples remain |
-| Memory corruption | External references / scattered commands | Gap: tested cross-compilation and adaptation exercise |
-| AV concepts | Existing payload notes | Partial; explain limitations and lab validation, not universal bypass claims |
-| Password handling | README, AD workflow, private inventory | Covered in reference; add format-specific worked examples |
-| Linux escalation | README and [prerequisite guide](privilege-escalation.md) | Broad reference; commands not all reproduced |
-| Windows escalation | README and prerequisite guide | Broad reference; compatibility matrix still needs lab results |
-| Tunneling | [Pivoting](pivoting.md) | Ligolo, SSH and Chisel examples; multi-hop lab rehearsal remains |
-| Metasploit | README and exam restrictions | Restricted usage explained; separate training exercises remain |
-| AD enumeration/authentication | [AD workflow](active-directory.md) and README | CE/legacy distinction and permission interpretation added |
-| Lateral movement | AD workflow and README | Existing command coverage; synthetic end-to-end lab remains |
-| Integrated practice | [Training](training.md) and progress template | Added measurable rehearsal process |
-
-## Changes in this revision
-
-- Situation-based navigation while preserving the original command reference and attribution.
-- Exam-rule snapshot linked to official sources; SQLMap removed from setup aliases and labeled training-only.
-- Setup variables and shortcuts clarified; avoid shadowing commands such as `nc` and `smbclient`.
-- Ligolo console/host separation, return traffic and loopback access documented.
-- AD permission, credential scope and collector compatibility guidance.
-- Private note/report templates, an offline notebook initializer and a local Markdown path checker.
+| Discovery and services | [Methodology](methodology.md), [protocol triage](services.md), [NFS](nfs.md) | Priority decisions and bounded checks; target/tool repetition pending |
+| SMB and credential scope | [SMB](smb.md), [private inventory](../templates/credentials.md) | Illustrative allowed/denied results and branch decisions; target-lab repetition pending |
+| Web and manual SQL | [Web](web.md), [SQLi](sql-injection.md) | Baseline, contrasting requests and false-positive handling; one [HTTP/SQLite fixture executed](lab-validation.md#executed-record-http-truefalse-controls) |
+| Linux permissions | [Interpreted sudo/SUID/capabilities](linux-permissions.md) | Illustrative permission/mount/runtime evidence; target-lab repetition pending |
+| Windows escalation | [Triage](privilege-escalation.md), [service interpretation](windows-services.md) | Token, file ACL, service SDDL and trigger distinguished; target-lab repetition pending |
+| AD | [Identity and ACL decisions](active-directory.md) | Illustrative login/share denial and live ACL/membership checks; target-lab repetition pending |
+| Routing | [Pivoting](pivoting.md) | Host/console separation, route/return path and interpreted example; multi-hop target-lab repetition pending |
+| File/secret discovery | [Targeted triage](file-triage.md) | Application-context-first workflow; broad old wordlist moved to appendix |
+| Exam | [Rules/proofs](exam.md), [time management](../README.md#exam-mindset--time-management), [report](../templates/report.md) | Objective and evidence tracking; full exported report rehearsal still needed |
+| Client mission | [Pentest workflow](pentest.md), [brief](../templates/engagement.md), [client report](../templates/client-report.md) | Illustrative bounded assessment/finding and retest criteria; adapt to actual scope |
+| Practice and maintenance | [Training](training.md), [toolkit](toolkit.md), [troubleshooting](troubleshooting.md) | Repeatable drills, error-led checks and notebook helpers |
 
 ## Validation levels
 
-### Field manual revision — 2026-10-17
+The [validation page](lab-validation.md#status-definitions) defines illustrative, source-reviewed, local-fixture-tested and target-lab-tested. Source review, heading checks and passing notebook tests cannot certify an exploit or OSCP tool permission. No Windows, Linux privilege, SMB, AD, NFS or pivot target was exercised in this revision.
 
-The complete README at `d3496cf` was reviewed for this follow-up. It now serves as the **OSCP Ultimate Field Manual**, with stage-based navigation, consistent heading levels, ten service-specific checklists, Linux/Windows/AD checklists, concise Exam Tips and an Exam Mindset & Time Management section. Existing technical subjects and attribution remain; identified command changes are itemized in the [follow-up audit](command-audit.md#field-manual-follow-up-review). The exam snapshot was rechecked against the official guide and FAQ. These changes are source-reviewed and locally checked, not target-lab-tested.
+The [official body of knowledge](https://help.offsec.com/hc/en-us/articles/38543335188756-OSCP-Body-of-knowledge) defines a broader curriculum. Client-side exercises, memory-corruption/adaptation exercises, specific defense/runtime behavior and full integrated target-lab chains remain incomplete. The archive's presence is not proof of tested coverage.
 
-### What each level means
+## Next records to add
 
-**Source-reviewed** means documentation was compared with primary references. **Locally checked** applies to repository scripts and navigation. **Lab-tested** requires a dated, reproducible lab run with tool and target versions. The new attack workflows are source-reviewed, not lab-tested in this revision. The original README retains historical examples; this is not a line-by-line certification of every command.
+1. Fill the target/tool/version and expected-versus-observed fields for one procedure at a time.
+2. Add a successful and a denied/invalid condition, including the decision to stop or switch.
+3. Reproduce one complete synthetic lab chain with evidence and restoration, then a complete report export.
+4. Recheck exam rules and version-specific behavior before the next attempt/release.
 
-## Maintenance priorities
-
-The subsequent [command audit](command-audit.md) corrects identified CLI and chain prerequisites against current upstream references and adds a [CVE shortlist](cve-references.md). These changes are source-reviewed; offensive workflows remain untested in a target lab.
-
-1. Add synthetic worked examples for uncovered topics and record their validation status.
-2. Gradually split the original reference by topic while maintaining old anchors or redirect notes.
-3. Replace stale third-party snippets only after checking their behavior and attribution.
-4. Recheck exam policy and upstream tool syntax before each attempt or documentation release.
-5. Add external-link auditing separately; the current offline checker validates local paths only.
+Use [the technique template](../templates/technique.md). Add depth or a missing record before adding more tool lists.

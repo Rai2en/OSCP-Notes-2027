@@ -29,6 +29,16 @@ For an official study schedule, consult the [12-week plan](https://help.offsec.c
 
 Record hint usage honestly. After reading a solution, close it, explain the missed observation, then reattempt later from a fresh state. Track time to first useful observation, time lost to environment issues, missing evidence and the cause of each failed hypothesis.
 
+## Three bounded drills
+
+| Drill | Do | Keep / exit condition |
+|---|---|---|
+| HTTP controls | Run [the local exercise](lab-validation.md#executed-record-http-truefalse-controls), then replay it manually | Baseline/true/false pair explained; no claim about data extraction or another database |
+| Permission interpretation | Use a disposable lab and the [Windows](windows-services.md) or [Linux](linux-permissions.md) procedure | One permitted and one rejected hypothesis with actual permission/trigger evidence and resulting decision |
+| Evidence handoff | Solve one authorized lab target using a private notebook; reconstruct the report from notes after a break | No missing command, identity, route or screenshot required for another reader to reproduce the path |
+
+Record actual tool/target versions and results in [validation](lab-validation.md). Reattempt after addressing the cause of difficulty; merely rereading the explanation does not complete the drill.
+
 ## Turn a machine into a reusable lesson
 
 Write a generic technique with synthetic names and clear prerequisites using [the technique template](../templates/technique.md). Keep credentials, flags, private lab screenshots and restricted exam material out of the public repository. A collection of machine-specific answers does not establish that you can solve a new machine.
